@@ -4,7 +4,6 @@ import { draftIntroEmail, getOrganizationDetail } from "@/lib/services/partners"
 import {
   addContactAction,
   archiveOrganizationAction,
-  assignOrganizationOwnerToMeAction,
   createFollowUpTaskAction,
   logIntroEmailSentAction,
   logOutreachTouchAction,
@@ -70,12 +69,6 @@ export default async function OrganizationDetailPage({
               ) : null}
             </div>
             <div className="flex flex-wrap gap-3">
-              <form action={assignOrganizationOwnerToMeAction}>
-                <input type="hidden" name="organizationId" value={organization.id} />
-                <button type="submit" className="rounded-lg border border-[#0f766e] px-4 py-2.5 text-[13px] font-medium text-[#0f766e]">
-                  Assign to me
-                </button>
-              </form>
               {organization.archivedAt ? (
                 <form action={unarchiveOrganizationAction}>
                   <input type="hidden" name="organizationId" value={organization.id} />
@@ -110,10 +103,12 @@ export default async function OrganizationDetailPage({
         <div className="rounded-3xl border border-[#ddd6cc] bg-white p-6 shadow-[0_8px_30px_rgba(30,41,59,0.05)]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#94a3b8]">Profile and ownership</p>
           <h2 className="mt-2 text-[22px] font-semibold tracking-tight">Keep the record organized</h2>
+          <p className="mt-2 text-[13px] text-[#64748b]">
+            Owner is a manual field for now. Pick the person responsible for this relationship, even if they do not log into the app yet.
+          </p>
           <form action={updateOrganizationProfileAction} className="mt-6 space-y-4">
             <input type="hidden" name="organizationId" value={organization.id} />
             <input name="ownerUserName" defaultValue={organization.ownerUserName || ""} placeholder="Owner name" className={inputClassName} />
-            <input name="ownerUserId" defaultValue={organization.ownerUserId || ""} placeholder="Owner user id" className={inputClassName} />
             <input name="source" defaultValue={organization.source || ""} placeholder="Campaign or source" className={inputClassName} />
             <input name="priority" type="number" min="0" max="5" defaultValue={organization.priority} className={inputClassName} />
             <input name="nextActionAt" type="datetime-local" defaultValue={toDateTimeLocalValue(organization.nextActionAt)} className={inputClassName} />
