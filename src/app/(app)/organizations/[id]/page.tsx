@@ -2,13 +2,12 @@ import { notFound } from "next/navigation";
 import { getPartnersRequestContext } from "@/lib/auth";
 import { draftIntroEmail, getOrganizationDetail } from "@/lib/services/partners";
 import { getEmailDeliveryStatus } from "@/lib/email";
+import { FirstOutreachComposer } from "@/components/organizations/first-outreach-composer";
 import {
   addContactAction,
   archiveOrganizationAction,
   createFollowUpTaskAction,
-  logIntroEmailSentAction,
   logOutreachTouchAction,
-  sendIntroEmailAction,
   unarchiveOrganizationAction,
   updateOrganizationProfileAction,
   updateOrganizationStatusAction,
@@ -48,9 +47,6 @@ export default async function OrganizationDetailPage({
     ?? organization.contacts.find((contact) => contact.email);
   const recipientEmail = primaryEmailContact?.email || organization.email || "";
   const recipientLabel = primaryEmailContact?.fullName || organization.name;
-  const mailToHref = recipientEmail
-    ? buildMailToHref(recipientEmail, introEmail.subject, introEmail.body)
-    : null;
   const emailDelivery = getEmailDeliveryStatus();
 
   return (
@@ -256,70 +252,15 @@ export default async function OrganizationDetailPage({
               ) : null}
             </div>
 
-            <div>
-              <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template subject</label>
-              <input readOnly value={introEmail.subject} className={`${inputClassName} mt-2 bg-[#f8fafc]`} />
-            </div>
-
-            <div>
-              <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template body</label>
-              <textarea readOnly value={introEmail.body} className="mt-2 min-h-52 w-full rounded-xl border border-[#d7d2c9] bg-[#f8fafc] px-3 py-2.5 text-[14px] text-[#1e293b] outline-none" />
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <form action={sendIntroEmailAction}>
-                <input type="hidden" name="organizationId" value={organization.id} />
-                <input type="hidden" name="contactId" value={primaryEmailContact?.id || ""} />
-                <input type="hidden" name="recipientEmail" value={recipientEmail} />
-                <input type="hidden" name="recipientLabel" value={recipientLabel} />
-                <input type="hidden" name="subject" value={introEmail.subject} />
-                <input type="hidden" name="body" value={introEmail.body} />
-                <button
-                  type="submit"
-                  disabled={!recipientEmail || !emailDelivery.resendConfigured}
-                  className={`rounded-lg px-4 py-2.5 text-[14px] font-medium text-white ${
-                    recipientEmail && emailDelivery.resendConfigured ? "bg-[#0f766e]" : "bg-[#cbd5e1]"
-                  }`}
-                >
-                  Send with Resend
-                </button>
-              </form>
-
-              {mailToHref ? (
-                <a
-                  href={mailToHref}
-                  className="rounded-lg border border-[#0f766e] px-4 py-2.5 text-[14px] font-medium text-[#0f766e]"
-                >
-                  Open in email app
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-lg border border-[#cbd5e1] px-4 py-2.5 text-[14px] font-medium text-[#94a3b8]"
-                >
-                  Open in email app
-                </button>
-              )}
-
-              <form action={logIntroEmailSentAction}>
-                <input type="hidden" name="organizationId" value={organization.id} />
-                <input type="hidden" name="contactId" value={primaryEmailContact?.id || ""} />
-                <input type="hidden" name="subject" value={introEmail.subject} />
-                <input type="hidden" name="recipientLabel" value={recipientLabel} />
-                <button
-                  type="submit"
-                  disabled={!recipientEmail}
-                  className={`rounded-lg px-4 py-2.5 text-[14px] font-medium ${
-                    recipientEmail
-                      ? "border border-[#1e293b] text-[#1e293b]"
-                      : "border border-[#cbd5e1] text-[#94a3b8]"
-                  }`}
-                >
-                  Log manual send
-                </button>
-              </form>
-            </div>
+            <FirstOutreachComposer
+              organizationId={organization.id}
+              contactId={primaryEmailContact?.id}
+              recipientEmail={recipientEmail}
+              recipientLabel={recipientLabel}
+              defaultSubject={introEmail.subject}
+              defaultBody={introEmail.body}
+              resendConfigured={emailDelivery.resendConfigured}
+            />
 
             <p className="text-[13px] text-[#64748b]">
               Use Resend for app-triggered sends or your mail app for manual sends. Either path records the intro email and moves the account to awaiting reply.
@@ -490,15 +431,6 @@ function toDateTimeLocalValue(value: Date | null) {
 
   const localValue = new Date(value.getTime() - value.getTimezoneOffset() * 60_000);
   return localValue.toISOString().slice(0, 16);
-}
-
-function buildMailToHref(to: string, subject: string, body: string) {
-  const params = new URLSearchParams({
-    subject,
-    body,
-  });
-
-  return `mailto:${to}?${params.toString()}`;
 }
 
 const inputClassName =
