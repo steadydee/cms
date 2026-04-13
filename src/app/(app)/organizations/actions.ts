@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { authorizePartnersAccess } from "@/lib/auth";
-import { sendEmailWithResend } from "@/lib/email";
 import {
   addContact,
   archiveOrganization,
@@ -11,7 +10,9 @@ import {
   bulkUpdateOrganizations,
   createOrganization,
   logOutreachTouch,
+  logIntroEmailSent,
   scheduleFollowUpTask,
+  sendIntroEmail,
   unarchiveOrganization,
   updateOrganizationProfile,
   updateOrganizationStatus,
@@ -138,17 +139,11 @@ export async function logIntroEmailSentAction(formData: FormData) {
   const subject = String(formData.get("subject") ?? "").trim();
   const recipientLabel = String(formData.get("recipientLabel") ?? "").trim();
 
-  await logOutreachTouch(access.context, {
+  await logIntroEmailSent(access.context, {
     organizationId,
     contactId,
-    channel: "email",
     subject,
-    summary: recipientLabel
-      ? `Sent intro email template to ${recipientLabel}.`
-      : "Sent intro email template.",
-    outcome: "Awaiting reply",
-    nextStep: "Follow up if no reply.",
-    status: "awaiting_reply",
+    recipientLabel,
   });
 
   revalidatePath("/dashboard");
@@ -175,23 +170,13 @@ export async function sendIntroEmailAction(formData: FormData) {
     throw new Error("Recipient email is required");
   }
 
-  await sendEmailWithResend({
-    to: recipientEmail,
-    subject,
-    text: body,
-  });
-
-  await logOutreachTouch(access.context, {
+  await sendIntroEmail(access.context, {
     organizationId,
     contactId,
-    channel: "email",
+    recipientEmail,
+    recipientLabel,
     subject,
-    summary: recipientLabel
-      ? `Sent intro email template to ${recipientLabel} via Resend.`
-      : "Sent intro email template via Resend.",
-    outcome: "Awaiting reply",
-    nextStep: "Follow up if no reply.",
-    status: "awaiting_reply",
+    body,
   });
 
   revalidatePath("/dashboard");

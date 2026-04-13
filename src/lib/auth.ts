@@ -11,6 +11,10 @@ export type PartnersRequestContext = {
   role: PartnersRole;
   propertyId: string;
   source: "shell" | "agent" | "dev";
+  actorType?: "human" | "agent";
+  permissions?: string[];
+  allowedToolClassifications?: string[];
+  credentialId?: string;
 };
 
 type PartnersSession = PartnersRequestContext & {
@@ -28,6 +32,22 @@ type HubHandoffPayload = {
   propertyId: string;
   iat: number;
   exp: number;
+};
+
+type HubAgentPayload = {
+  iss: string;
+  typ: string;
+  aud: string;
+  agentId: string;
+  credentialId: string;
+  actorLabel: string;
+  permissions: string[];
+  propertyIds: string[];
+  allowedToolClassifications: string[];
+  activePropertyId: string | null;
+  iat: number;
+  exp: number;
+  jti: string;
 };
 
 type AccessResult =
@@ -84,6 +104,22 @@ function hasRequiredAccess(role: PartnersRole, level: PartnersAccessLevel): bool
   return ROLE_RANK[role] >= ROLE_RANK[ACCESS_MIN_ROLE[level]];
 }
 
+function hasRequiredAgentPermission(permissions: string[] | undefined, level: PartnersAccessLevel): boolean {
+  const values = new Set(permissions ?? []);
+  if (values.has("partners.admin")) return true;
+
+  const permissionValues = Array.from(values);
+  if (level === "read") {
+    return permissionValues.some((value) => value.endsWith(".read") || value.endsWith(".write") || value.endsWith(".send"));
+  }
+
+  if (level === "write") {
+    return permissionValues.some((value) => value.endsWith(".write") || value.endsWith(".send"));
+  }
+
+  return false;
+}
+
 function getPartnersSessionSecret(): string {
   if (process.env.OW_PARTNERS_SESSION_SECRET?.trim()) return process.env.OW_PARTNERS_SESSION_SECRET.trim();
   if (process.env.OW_INTERNAL_SHARED_SECRET?.trim()) return process.env.OW_INTERNAL_SHARED_SECRET.trim();
@@ -96,6 +132,13 @@ function getModuleHandoffSecret(): string {
   if (process.env.OW_INTERNAL_SHARED_SECRET?.trim()) return process.env.OW_INTERNAL_SHARED_SECRET.trim();
   if (process.env.NODE_ENV !== "production") return "ow-module-dev-handoff-secret";
   throw new Error("OW_MODULE_HANDOFF_SECRET or OW_INTERNAL_SHARED_SECRET is required in production");
+}
+
+function getAgentTokenSecret(): string {
+  if (process.env.OW_AGENT_TOKEN_SECRET?.trim()) return process.env.OW_AGENT_TOKEN_SECRET.trim();
+  if (process.env.OW_INTERNAL_SHARED_SECRET?.trim()) return process.env.OW_INTERNAL_SHARED_SECRET.trim();
+  if (process.env.NODE_ENV !== "production") return "ow-agent-dev-token-secret";
+  throw new Error("OW_AGENT_TOKEN_SECRET or OW_INTERNAL_SHARED_SECRET is required in production");
 }
 
 async function getCookieContext(): Promise<PartnersRequestContext | null> {
@@ -112,29 +155,40 @@ async function getCookieContext(): Promise<PartnersRequestContext | null> {
     role: payload.role,
     propertyId: payload.propertyId,
     source: payload.source,
+    actorType: "human",
   };
 }
 
 async function getAgentContext(): Promise<PartnersRequestContext | null> {
-  const authHeader = (await headers()).get("authorization");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  if (!token) return null;
-
-  const expected = process.env.OW_PARTNERS_AGENT_TOKEN?.trim();
-  if (!expected || token !== expected) return null;
-
   const requestHeaders = await headers();
-  const propertyId = requestHeaders.get("x-ow-active-property-id")?.trim()
-    || process.env.OW_PARTNERS_DEV_PROPERTY_ID?.trim()
-    || "owlswatch";
+  const authHeader = requestHeaders.get("authorization") ?? requestHeaders.get("Authorization");
+  if (!authHeader) return null;
+
+  const [scheme, token] = authHeader.split(" ");
+  if (!scheme || !token || scheme.toLowerCase() !== "bearer") return null;
+
+  const payload = verifyPayload<HubAgentPayload>(token.trim(), getAgentTokenSecret());
+  if (!payload) return null;
+  if (payload.typ !== "agent_access") return null;
+  if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
+  if (payload.iss !== "owhub") return null;
+  if (payload.aud !== "partners") return null;
+  if (!payload.activePropertyId) return null;
+
+  const propertyAllowed = payload.propertyIds.includes("*") || payload.propertyIds.includes(payload.activePropertyId);
+  if (!propertyAllowed) return null;
 
   return {
-    userId: requestHeaders.get("x-ow-actor-id")?.trim() || "partners-agent",
-    userName: requestHeaders.get("x-ow-actor-label")?.trim() || "Partners automation",
+    userId: payload.agentId,
+    userName: payload.actorLabel,
     email: undefined,
     role: "admin",
-    propertyId,
+    propertyId: payload.activePropertyId,
     source: "agent",
+    actorType: "agent",
+    permissions: payload.permissions,
+    allowedToolClassifications: payload.allowedToolClassifications,
+    credentialId: payload.credentialId,
   };
 }
 
@@ -148,6 +202,7 @@ async function getDevContext(): Promise<PartnersRequestContext | null> {
     role: normalizeRole(process.env.OW_PARTNERS_DEV_ROLE?.trim()) ?? "admin",
     propertyId: process.env.OW_PARTNERS_DEV_PROPERTY_ID?.trim() || "owlswatch",
     source: "dev",
+    actorType: "human",
   };
 }
 
@@ -164,11 +219,20 @@ export async function getPartnersRequestContext(): Promise<PartnersRequestContex
 export async function authorizePartnersAccess(level: PartnersAccessLevel): Promise<AccessResult> {
   const context = await getPartnersRequestContext();
   if (!context) {
-    return { ok: false, status: 401, message: "Partners requires Owl's Watch employee context" };
+    return { ok: false, status: 401, message: "Partners requires Owl's Watch employee or machine context" };
   }
+
+  if (context.source === "agent") {
+    if (!hasRequiredAgentPermission(context.permissions, level)) {
+      return { ok: false, status: 403, message: "This machine actor does not have enough Partners scope" };
+    }
+    return { ok: true, context };
+  }
+
   if (!hasRequiredAccess(context.role, level)) {
     return { ok: false, status: 403, message: `This action requires ${ACCESS_MIN_ROLE[level]} access` };
   }
+
   return { ok: true, context };
 }
 
@@ -191,6 +255,7 @@ export async function createPartnersSessionFromHandoff(token: string): Promise<P
     role: payload.role,
     propertyId: payload.propertyId,
     source: "shell",
+    actorType: "human",
   };
 
   const session: PartnersSession = {

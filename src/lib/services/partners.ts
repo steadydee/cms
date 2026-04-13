@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { PartnersRequestContext } from "@/lib/auth";
+import { sendEmailWithResend } from "@/lib/email";
 
 export type SavedOrganizationView =
   | "all"
@@ -477,6 +478,20 @@ export async function listResearchFindings(propertyId: string, filters: Research
   });
 }
 
+export async function getResearchFindingDetail(id: string, propertyId: string) {
+  return db.researchFinding.findFirst({
+    where: { id, propertyId },
+    include: {
+      proposedOrganization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+}
+
 export async function getOrganizationDetail(id: string, propertyId: string) {
   const organization = await db.partnerOrganization.findFirst({
     where: { id, propertyId },
@@ -859,6 +874,78 @@ export async function logOutreachTouch(
 
     return touch;
   });
+}
+
+export async function logIntroEmailSent(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    contactId?: string;
+    subject: string;
+    recipientLabel?: string;
+  }
+) {
+  return logOutreachTouch(context, {
+    organizationId: input.organizationId,
+    contactId: input.contactId,
+    channel: "email",
+    subject: input.subject,
+    summary: input.recipientLabel
+      ? `Sent intro email template to ${input.recipientLabel}.`
+      : "Sent intro email template.",
+    outcome: "Awaiting reply",
+    nextStep: "Follow up if no reply.",
+    status: "awaiting_reply",
+  });
+}
+
+export async function sendIntroEmail(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    contactId?: string;
+    recipientEmail: string;
+    recipientLabel?: string;
+    subject: string;
+    body: string;
+  }
+) {
+  if (!input.recipientEmail.trim()) {
+    throw new Error("Recipient email is required");
+  }
+
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  if (input.contactId) {
+    await assertContactBelongsToOrganization(input.organizationId, input.contactId);
+  }
+
+  const messageId = await sendEmailWithResend({
+    to: input.recipientEmail.trim(),
+    subject: input.subject.trim(),
+    text: input.body,
+  });
+
+  const touch = await logOutreachTouch(context, {
+    organizationId: input.organizationId,
+    contactId: input.contactId,
+    channel: "email",
+    subject: input.subject,
+    summary: input.recipientLabel
+      ? `Sent intro email template to ${input.recipientLabel} via Resend.`
+      : "Sent intro email template via Resend.",
+    outcome: "Awaiting reply",
+    nextStep: "Follow up if no reply.",
+    status: "awaiting_reply",
+  });
+
+  return {
+    messageId,
+    touchId: touch.id,
+  };
 }
 
 export async function scheduleFollowUpTask(

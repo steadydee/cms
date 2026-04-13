@@ -195,3 +195,29 @@ model FollowUpTask {
   @@index([organizationId, dueAt])
   @@index([status, dueAt])
 }
+
+model ToolActionAudit {
+  id               String   @id @default(uuid())
+  app              String   @default("partners")
+  toolName         String   @map("tool_name")
+  classification   String
+  actorType        String   @map("actor_type")
+  actorId          String?  @map("actor_id")
+  actorLabel       String?  @map("actor_label")
+  credentialId     String?  @map("credential_id")
+  requestSource    String?  @map("request_source")
+  propertyId       String?  @map("property_id")
+  targetEntityType String?  @map("target_entity_type")
+  targetEntityId   String?  @map("target_entity_id")
+  status           String
+  errorCode        String?  @map("error_code")
+  correlationId    String?  @map("correlation_id")
+  inputSummary     String?  @map("input_summary")
+  outputSummary    String?  @map("output_summary")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([toolName, createdAt])
+  @@index([actorType, createdAt])
+  @@index([propertyId, createdAt])
+  @@map("tool_action_audits")
+}

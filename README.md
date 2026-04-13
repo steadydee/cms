@@ -57,7 +57,9 @@ The first implementation includes:
 - organization detail with contacts, outreach touches, and follow-up tasks
 - follow-up queue
 - tool discovery at `/.well-known/ow-tools`
-- first read and draft tools at `/api/tools/[tool]`
+- PMS-style machine-token auth through Hub-issued agent tokens
+- read, draft, guarded-write, and restricted tools at `/api/tools/[tool]`
+- write audit logging for guarded and restricted tool calls
 
 ## Environment
 
@@ -66,7 +68,7 @@ The current app expects these variables:
 - `DATABASE_URL`: Postgres database for Partners data
 - `OW_PARTNERS_SESSION_SECRET`: local session signing secret
 - `OW_MODULE_HANDOFF_SECRET`: Hub-to-Partners handoff verification secret
-- `OW_PARTNERS_AGENT_TOKEN`: machine token for the current lightweight agent mode
+- `OW_AGENT_TOKEN_SECRET`: shared secret used to verify Hub-issued machine tokens for `aud: "partners"`
 - `RESEND_API_KEY`: Resend API key for app-triggered email sends
 - `OW_PARTNERS_EMAIL_FROM`: verified sender, for example `info@owlswatch.com`
 - `OW_PARTNERS_EMAIL_REPLY_TO`: reply target, for example `info@owlswatch.com`
