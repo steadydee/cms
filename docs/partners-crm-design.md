@@ -1,556 +1,865 @@
-# Owl's Watch Partners CRM Design
+# Owl's Watch Partners Upgrade Design
 
-## Recommendation
+## Intent
 
-What you need is not a traditional CMS.
+This repository can stay at `cms` for now, but the product it is becoming is **Partners**.
 
-It is a lightweight **partners and outreach CRM** that lives inside the Owl's Watch Hub shell as its own bounded app.
+This app is not a generic content system. It is the relationship and outreach CRM for Owl's Watch:
 
-Suggested app names:
+- operators and agencies that can bring guests
+- travel advisors and media contacts
+- birding guides, drivers, and other influential local contacts
+- any person or company that can help Owl's Watch become part of more itineraries
 
-- `Partners`
-- `Outreach`
-- `CRM`
+The app should help Owl's Watch move a record from "we found this name on Instagram" to "this partner reliably sends guests."
 
-My recommendation is **Partners**.
+## How Owl's Watch Will Use It
 
-Why:
+The real operating model is:
 
-- it is clearer than CMS
-- it matches the actual domain
-- it avoids mixing content management with relationship management
+1. Find candidate partners from Instagram, websites, referrals, directories, and manual research.
+2. Store incomplete data immediately instead of waiting for a perfect contact record.
+3. Enrich the record over time with names, emails, WhatsApp numbers, notes, and source evidence.
+4. Start outreach with email, WhatsApp, calls, or a visit invitation.
+5. Keep follow-ups from getting lost.
+6. Track who replies, who visits, who sends a first client, and which outreach approach works best.
+7. Let humans, agents, and automations all work through the same app contracts.
 
-The CMS can still exist later for reusable content, brochures, templates, and knowledge.
-The Partners app should own the relationship and outreach workflow.
-
-## Core Goal
-
-The app should let Owl's Watch track:
-
-- which operators and agencies exist
-- who the contacts are
-- who has been contacted
-- who has not been contacted
-- who has visited the property
-- who has not visited
-- what channel was used
-- what the last outcome was
-- what the next action is
-
-It should support outreach across:
-
-- email
-- WhatsApp
-- phone calls
+That means the app must support both messy lead collection and disciplined relationship progression.
 
 ## Platform Position
 
-This app should sit inside Hub like PMS and Chatbot.
-
 ### Hub owns
 
-- employee login
-- session initiation
-- user and invite management
-- module launch and handoff
+- employee auth
+- module launch and signed handoff
+- cross-app identity
+- canonical platform standards for tools, machine auth, approvals, audit, and jobs
 
-### Partners app owns
+### Partners owns
 
-- organizations
-- contacts
-- outreach history
-- visit history
+- partner records
+- people and contact points
+- research intake and promotion
+- relationship stage
+- outreach timeline
 - follow-up tasks
-- campaign grouping
-- partner relationship stage
+- visit workflow
+- communication templates, variants, and sequences
+- outbound communication policy and execution records for this domain
 
 ### PMS owns
 
-- reservation and finance truth
+- reservation truth
+- stay and revenue truth
+- future attribution data for which partners produce bookings
 
-### Chatbot owns
+### A future real CMS can own
 
-- guest messaging truth
+- brochures
+- reusable collateral
+- long-form content
+- public content assets
 
-The Partners app can later read from PMS and CMS, but it should own its own CRM state.
+Partners may consume those assets later, but it should not wait on a future CMS.
 
-## MVP Scope
+## Current State In This Repo
 
-Build this first. Do not overbuild campaign automation on day one.
+The current implementation is a valid v0:
 
-### 1. Organizations
+- `PartnerOrganization`
+- `PartnerContact`
+- `OutreachTouch`
+- `FollowUpTask`
+- dashboard, organizations list, detail page, and follow-up queue
+- a basic tool runtime with read and draft tools
 
-Track each operator or agency as one organization record.
+That is the right starting point, but it is still too narrow for the way Owl's Watch actually works.
 
-Fields:
+Current strengths:
+
+- Hub-style auth handoff already exists
+- service layer exists in `src/lib/services/partners.ts`
+- tool runtime shape already exists in `src/lib/tools`
+- the app already thinks in terms of outreach, not generic content
+
+Current gaps:
+
+- the model is organization-centric, but some important contacts are individuals
+- there is no research inbox or provenance model
+- agents have nowhere safe to write partial findings first
+- there is no template, variant, sequence, or send-attempt model
+- there is no async batch/job pattern for outbound work
+- there is no experiment tracking for "which outreach works"
+- the current status model is too coarse for a real partner lifecycle
+
+## Design Principles
+
+1. This app is the system of record for partner relationship state.
+2. The system must tolerate incomplete data from day one.
+3. Raw research and canonical CRM records must be separate.
+4. UI, agents, and automations must call the same services.
+5. Drafting and sending are different operations.
+6. Outbound side effects need approval, policy, audit, and job control.
+7. The design should stay simpler than PMS, but not be ad hoc.
+
+## Product Naming
+
+### Product name
+
+Use **Partners** in the UI.
+
+### Repo name
+
+`cms` can remain for now if renaming the repository would create friction.
+
+### Navigation language
+
+Move away from "Organizations" as the primary mental model.
+
+Preferred top-level sections:
+
+- Dashboard
+- Accounts
+- Research
+- Follow-ups
+- Templates
+- Sequences
+- Settings
+
+Use "Accounts" rather than "Organizations" in the working UI because not every important relationship is a company.
+
+## Domain Model
+
+### 1. PartnerAccount
+
+This becomes the main relationship record.
+
+It should represent either an organization or an individual.
+
+Recommended fields:
 
 - `id`
-- `name`
-- `type` (`agency`, `operator`, `travel_advisor`, `media`, `other`)
+- `propertyId`
+- `accountKind` (`organization`, `individual`)
+- `displayName`
+- `partnerType` (`operator`, `agency`, `travel_advisor`, `guide`, `driver`, `media`, `other_lodge`, `influencer`, `other`)
+- `relationshipStage`
+- `visitStatus`
+- `researchStatus`
+- `ownerUserId`
+- `ownerUserName`
+- `priority`
 - `country`
 - `city`
 - `website`
-- `whatsapp`
-- `phone`
-- `email`
+- `instagramHandle`
+- `primaryEmail`
+- `primaryPhone`
+- `primaryWhatsapp`
 - `source`
 - `marketNotes`
-- `ownerUserId`
-- `priority`
-- `status`
-- `visitStatus`
-- `lastContactedAt`
+- `campaignTag`
+- `lastInboundAt`
+- `lastOutboundAt`
+- `lastVisitedAt`
 - `nextActionAt`
+- `firstReferredAt`
+- `lastReferredAt`
 - `createdAt`
 - `updatedAt`
 
-### 2. Contacts
+Implementation note:
 
-Track people inside each organization.
+- the current `PartnerOrganization` table can either be evolved into this shape or replaced by a future `PartnerAccount` migration
+- service and UI naming should move toward `account` immediately, even if the table rename happens later
 
-Fields:
+### 2. PartnerPerson
+
+People attached to an account.
+
+Recommended fields:
 
 - `id`
-- `organizationId`
+- `accountId`
 - `fullName`
 - `roleTitle`
 - `email`
 - `phone`
 - `whatsapp`
+- `instagramHandle`
 - `preferredChannel`
 - `isPrimary`
+- `isDecisionMaker`
 - `notes`
-- `lastContactedAt`
+- `lastInboundAt`
+- `lastOutboundAt`
+- `createdAt`
+- `updatedAt`
 
-### 3. Outreach Touches
+For `accountKind = individual`, there may still be a `PartnerPerson` record, but the account itself remains the lifecycle owner.
 
-Every outreach action should be logged as a touch.
+### 3. AccountIdentity
 
-Fields:
+This stores dedupe and contact points in a normalized way.
+
+Examples:
+
+- website URL
+- email address
+- WhatsApp number
+- Instagram handle
+- phone number
+
+Recommended fields:
 
 - `id`
-- `organizationId`
-- `contactId`
-- `channel` (`email`, `whatsapp`, `phone`, `meeting`, `other`)
-- `direction` (`outbound`, `inbound`)
+- `accountId`
+- `personId`
+- `identityType`
+- `value`
+- `isPrimary`
+- `isVerified`
+- `source`
+
+This keeps enrichment and matching cleaner than scattering identifiers across many columns forever.
+
+### 4. ResearchFinding
+
+Agents should write here first.
+
+This is the raw evidence and extraction layer for messy lead discovery.
+
+Recommended fields:
+
+- `id`
+- `propertyId`
+- `sourceType` (`instagram`, `website`, `directory`, `manual`, `referral`, `other`)
+- `sourceUrl`
+- `sourceHandle`
+- `observedName`
+- `observedText`
+- `extractedDataJson`
+- `confidence`
+- `status` (`new`, `reviewed`, `promoted`, `discarded`, `merged`)
+- `proposedAccountId`
+- `createdByActorType`
+- `createdByActorId`
+- `createdAt`
+- `updatedAt`
+
+Rules:
+
+- research findings are not canonical CRM state
+- promotion or merge is explicit
+- provenance remains visible after promotion
+
+### 5. OutreachTouch
+
+Keep the current timeline concept.
+
+This is the human-readable interaction log for:
+
+- email
+- WhatsApp
+- phone calls
+- meetings
+- notes
+- inbound replies
+
+Recommended fields:
+
+- `id`
+- `accountId`
+- `personId`
+- `channel`
+- `direction`
+- `kind` (`initial_outreach`, `followup`, `reply`, `call`, `visit_invite`, `visit`, `note`, `other`)
 - `happenedAt`
 - `subject`
 - `summary`
 - `outcome`
 - `nextStep`
-- `createdByUserId`
+- `campaignTag`
+- `templateId`
+- `templateVariantId`
+- `sequenceId`
+- `sequenceStepId`
+- `communicationAttemptId`
+- `createdByActorType`
+- `createdByActorId`
+- `createdByActorLabel`
 
-### 4. Visit Tracking
+### 6. FollowUpTask
 
-You specifically need to know who has visited and who has not.
+Keep this as the action queue.
 
-Keep this explicit.
-
-Fields:
-
-- `visitStatus` (`never_invited`, `invited`, `scheduled`, `visited`)
-- `lastVisitedAt`
-- `visitNotes`
-
-This can live on the organization record at first.
-If visits become more complex later, split them into their own `PartnerVisit` table.
-
-### 5. Follow-Up Tasks
-
-Manual outreach dies when follow-ups disappear.
-
-Fields:
+Recommended fields:
 
 - `id`
-- `organizationId`
-- `contactId`
+- `accountId`
+- `personId`
 - `title`
 - `description`
+- `taskType` (`email_followup`, `whatsapp_followup`, `call`, `research`, `invite_visit`, `post_visit_followup`, `other`)
 - `dueAt`
-- `status` (`open`, `done`, `cancelled`)
+- `status`
 - `assignedToUserId`
-- `createdByUserId`
+- `assignedToUserName`
+- `createdByActorType`
+- `createdByActorId`
+- `createdByActorLabel`
+- `completedAt`
 
-### 6. Campaign Grouping
+### 7. Visit
 
-Keep this light in v1.
+The current app keeps visit status on the organization record.
 
-Fields:
+That is acceptable for a first pass, but the target design should support explicit visits.
 
-- `campaignTag`
-- `segment`
-- `source`
+Recommended fields:
 
-Examples:
+- `id`
+- `accountId`
+- `personId`
+- `status` (`invited`, `scheduled`, `visited`, `cancelled`)
+- `scheduledFor`
+- `visitedAt`
+- `summary`
+- `notes`
 
-- `2026-q2-colombia-operators`
-- `familiarization-trip-prospects`
-- `birding-agencies-priority`
+Short-term rule:
 
-Do not build a full marketing automation engine first.
+- keep `visitStatus` and `lastVisitedAt` on the account
+- do not overwrite historical visit dates on unrelated edits
 
-## Recommended Status Model
+### 8. Communication Entities
 
-Keep the status model simple and operational.
+Use the shared platform vocabulary from Hub:
 
-### Relationship Status
+- `Template`
+- `TemplateVariant`
+- `Sequence`
+- `SequenceStep`
+- `CommunicationDraft`
+- `CommunicationAttempt`
 
-- `not_contacted`
-- `contacted`
+These are required if you want direct sending, experiment tracking, and safe automation.
+
+## Lifecycle Model
+
+The current status enum is too simple for the real workflow.
+
+Use a relationship lifecycle that reflects how Owl's Watch actually courts partners.
+
+### Relationship stage
+
+- `discovered`
+- `researching`
+- `ready_for_outreach`
+- `outreach_in_progress`
 - `awaiting_reply`
 - `engaged`
+- `visit_invited`
 - `visit_scheduled`
 - `visited`
-- `proposal_sent`
+- `trial_partner`
 - `active_partner`
-- `inactive`
-- `not_interested`
+- `dormant`
+- `not_a_fit`
 
-### Visit Status
+### Visit status
 
-- `never_invited`
+- `not_invited`
 - `invited`
 - `scheduled`
 - `visited`
 
-These two fields are enough for the first version.
+### Research status
 
-## Primary Screens
+- `unresearched`
+- `partial`
+- `enriched`
+- `validated`
+
+### Practical rules
+
+- logging one touch should not blindly force the account into one generic status forever
+- inbound replies should update `lastInboundAt`
+- outbound touches should update `lastOutboundAt`
+- stage transitions should happen from explicit service rules, not page-local guesses
+- visit timestamps must change only on a real visit transition
+
+## Incomplete Data Strategy
+
+This is critical for your use case.
+
+Many records will begin with only:
+
+- an operator name
+- an Instagram handle
+- a website
+- a single email
+- a city
+- a note from research
+
+The app should allow account creation with minimal required fields:
+
+- `displayName`
+- `accountKind`
+- one provenance hint such as source, URL, or note
+
+Everything else can be missing at first.
+
+Useful derived flags:
+
+- `hasAnyContactPoint`
+- `hasDecisionMaker`
+- `isReadyForOutreach`
+- `isMissingCriticalData`
+
+These should be derived in service logic, not hard-coded into the UI only.
+
+## Research Workflow
+
+### Goal
+
+Let ChatGPT or future agents collect information safely without writing noisy data directly into canonical accounts.
+
+### Workflow
+
+1. An agent monitors a source such as Instagram or a website.
+2. The agent creates one or more `ResearchFinding` records.
+3. The app groups possible duplicates by name, handle, URL, or existing account match.
+4. A human or a trusted merge tool promotes the finding into a `PartnerAccount` and optional `PartnerPerson`.
+5. The promoted account moves into `researching` or `ready_for_outreach`.
+
+### Required capabilities
+
+- research inbox
+- dedupe suggestions
+- promote-to-account action
+- merge-into-existing-account action
+- provenance display on the account detail page
+
+## Communication Design
+
+### Channels
+
+Support:
+
+- email
+- WhatsApp
+- phone
+- meeting / visit invite
+- internal note
+
+### Template model
+
+Templates should be owned inside Partners, not hidden in page code.
+
+Recommended entities:
+
+- `Template`
+- `TemplateVariant`
+- `Sequence`
+- `SequenceStep`
+
+This lets you answer:
+
+- which intro email works best
+- whether WhatsApp works better than email for a certain segment
+- whether a visit invite performs better after one call or two emails
+
+### Draft versus send
+
+Separate these operations:
+
+1. Draft communication
+2. Review or approve communication
+3. Send communication
+4. Track delivery and reply state
+
+That means:
+
+- every sent message stores a snapshot of the rendered content
+- templates remain editable without rewriting history
+- sends can be audited and attributed to an actor
+
+### Experiment tracking
+
+Every outbound attempt should carry:
+
+- `campaignTag`
+- `templateId`
+- `templateVariantId`
+- `sequenceId`
+- `sequenceStepId`
+
+Later, Partners should be able to report:
+
+- reply rate by template variant
+- visit rate by sequence
+- active partner conversion by channel
+- first referral conversion by campaign
+
+### Direct sending from the app
+
+Yes, email sending should eventually happen directly from Partners.
+
+But the design should be:
+
+- draft first
+- send through a provider-backed service
+- respect opt-out or suppression rules
+- record a `CommunicationAttempt`
+- log an `OutreachTouch`
+- require approval or approved policy for sensitive batch sends
+
+For WhatsApp:
+
+- first phase can be draft-and-log
+- later phase can integrate direct sending if the provider and compliance path are ready
+
+## Agent And Automation Design
+
+Partners should fully adopt the Hub platform standards.
+
+That means:
+
+- tool discovery and invocation follow the Hub tool runtime
+- machine callers use machine credentials, not employee passwords
+- actor metadata is preserved on every write
+- restricted side effects use approval or explicit policy
+- long-running or batch actions use jobs
+
+### Read tools
+
+- `get_partner_account`
+- `find_partner_accounts`
+- `get_partner_people`
+- `get_partner_timeline`
+- `list_accounts_by_stage`
+- `list_followups_due`
+- `list_research_findings`
+- `get_template_performance`
+
+### Draft tools
+
+- `draft_intro_email`
+- `draft_followup_email`
+- `draft_whatsapp_outreach`
+- `draft_call_script`
+- `draft_visit_invitation`
+- `draft_sequence_step`
+
+### Guarded write tools
+
+- `create_partner_account`
+- `add_partner_person`
+- `promote_research_finding`
+- `merge_partner_accounts`
+- `log_outreach_touch`
+- `schedule_followup_task`
+- `update_partner_stage`
+- `update_visit_status`
+- `save_communication_draft`
+
+### Restricted or job-backed tools
+
+- `plan_followup_batch`
+- `enqueue_followup_batch`
+- `send_email`
+- `send_followup_batch`
+- `launch_sequence_for_accounts`
+- `sync_research_monitor`
+- `archive_partner_account`
+
+### Example supported command
+
+This should become a valid supported workflow:
+
+"Send followups for any operator who did not respond to our initial email 60 days ago."
+
+The runtime path should be:
+
+1. `list_accounts_needing_followup`
+2. `plan_followup_batch`
+3. `enqueue_followup_batch`
+4. approval or policy check
+5. send attempts plus touch logging
+6. job status and audit trail
+
+## UI Upgrade Shape
 
 ### 1. Dashboard
 
 Show:
 
-- total organizations
-- not contacted
+- discovered leads
+- ready for outreach
 - awaiting reply
-- follow-ups due this week
-- visit scheduled
-- visited but not active
+- follow-ups overdue
+- visits scheduled
+- visited
 - active partners
+- research inbox count
 
-### 2. Organizations List
+### 2. Accounts list
 
-Main working table with filters:
+This replaces the purely organization-centric working table.
 
-- type
-- status
+Filters:
+
+- account kind
+- partner type
+- relationship stage
 - visit status
 - owner
-- channel used
-- country
+- source
 - campaign tag
+- research status
+- ready-for-outreach flag
 
-Saved views should include:
+Saved views:
 
-- never contacted
-- contacted no reply
-- visited but not followed up
-- follow-up overdue
+- incomplete leads
+- ready for outreach
+- awaiting reply
+- needs 60-day follow-up
+- visit invited
+- visited not active
 - active partners
+- unassigned
 
-### 3. Organization Detail
+### 3. Research inbox
 
-One screen with:
+This is a first-class screen.
 
-- org summary
-- contacts
-- outreach history timeline
-- visit info
-- notes
+Show:
+
+- new findings
+- duplicate suggestions
+- promote actions
+- discard actions
+- agent source and confidence
+
+### 4. Account detail
+
+Show:
+
+- account summary
+- people
+- identity points
+- timeline
 - follow-up tasks
-- campaign tags
+- visit state
+- research provenance
+- communication history
+- template or sequence history
 
-### 4. Contacts View
+### 5. Follow-ups
 
-Useful for lists like:
+Queues:
 
-- people to email
-- people to WhatsApp
-- people with missing contact info
-
-### 5. Tasks / Follow-Ups
-
-Simple queue:
-
-- due today
-- due this week
 - overdue
-- completed
+- due this week
+- mine
+- sequence-generated
+- blocked by missing contact info
 
-### 6. Campaign / Segment View
+### 6. Templates and sequences
 
-At first, this can just be a filtered list by tag or segment.
-Do not build a Mailchimp clone.
+This can begin simple.
 
-## Core Workflows
+Start with:
 
-### Workflow 1: Add a new agency
+- template list
+- variant list
+- sequence steps
+- approval mode
 
-1. Create organization
-2. Add primary contact
-3. Set status to `not_contacted`
-4. Assign owner
-5. Set next action date
+Do not build a giant visual automation builder first.
 
-### Workflow 2: Send first outreach
+## Implementation Strategy
 
-1. Open organization
-2. Log touch as `email` or `whatsapp`
-3. Set outcome
-4. Move status to `contacted`
-5. Create follow-up task
+### Phase 0: Correct the current v0
 
-### Workflow 3: No reply follow-up
+Fix the current integrity and workflow issues before adding more surface area:
 
-1. Filter `awaiting_reply` or overdue tasks
-2. Log another touch
-3. Update notes and next action
+- follow-up queue scoping bug
+- contact-to-organization validation
+- visit timestamp preservation
+- any additional service-level data integrity issues
 
-### Workflow 4: Property visit
+### Phase 1: Reframe the app as Partners
 
-1. Mark visit as scheduled
-2. After visit, mark `visited`
-3. Add visit notes
-4. Create next action task
+- update product language in UI from generic CMS wording to Partners wording
+- move service and tool naming toward `account` and `person`
+- preserve current pages where possible, but align the mental model now
 
-### Workflow 5: Convert to active partner
+### Phase 2: Add research and better lifecycle state
 
-1. Update relationship status to `active_partner`
-2. Keep touch history and notes intact
-3. Later, connect to PMS performance or booking reporting
+- add `ResearchFinding`
+- add richer stage model
+- add incomplete-data and readiness derivations
+- add research inbox UI and tools
 
-## Suggested Service Layer
+### Phase 3: Add communications foundation
 
-The app should be structured like the other Owl's Watch projects.
+- add `Template`
+- add `TemplateVariant`
+- add `Sequence`
+- add `SequenceStep`
+- add `CommunicationDraft`
+- add `CommunicationAttempt`
 
-Examples:
+### Phase 4: Add job-backed outbound execution
 
-- `createOrganization`
-- `updateOrganizationStatus`
-- `addContact`
+- `plan_*` and `enqueue_*` tools
+- batch follow-up jobs
+- approval and policy enforcement
+- audit for all sends
+
+### Phase 5: Add attribution and reporting
+
+- reply and visit conversion by variant
+- active partner conversion by sequence
+- PMS read integration for referred booking attribution
+
+## Initial Schema Direction
+
+If you want the fastest path without a massive migration, do this:
+
+### Keep temporarily
+
+- `PartnerOrganization`
+- `PartnerContact`
+- `OutreachTouch`
+- `FollowUpTask`
+
+### Add next
+
+- `ResearchFinding`
+- `Template`
+- `TemplateVariant`
+- `Sequence`
+- `SequenceStep`
+- `CommunicationDraft`
+- `CommunicationAttempt`
+
+### Then evolve
+
+- rename or replace `PartnerOrganization` with `PartnerAccount`
+- rename or replace `PartnerContact` with `PartnerPerson`
+- add `AccountIdentity`
+- add explicit `Visit`
+
+That gives you forward motion without pretending the current schema is the final shape.
+
+## Service Layer Direction
+
+The service layer should become the real product API.
+
+Recommended service set:
+
+- `createPartnerAccount`
+- `updatePartnerAccount`
+- `addPartnerPerson`
+- `createResearchFinding`
+- `promoteResearchFinding`
+- `mergePartnerAccounts`
 - `logOutreachTouch`
 - `scheduleFollowUpTask`
 - `completeFollowUpTask`
-- `markVisitScheduled`
-- `markVisitCompleted`
-- `listOutreachTargets`
-- `listDueFollowUps`
+- `updateRelationshipStage`
+- `updateVisitStatus`
+- `saveCommunicationDraft`
+- `planFollowupBatch`
+- `enqueueFollowupBatch`
+- `recordCommunicationAttempt`
+- `markInboundReply`
 
-## Agent-Friendly Tool Surface
-
-Because you want automation, design the app with tools from day one.
-
-### Read Tools
-
-- `get_partner_organization`
-- `find_partner_organizations`
-- `list_not_contacted_partners`
-- `list_partners_awaiting_reply`
-- `list_visited_partners`
-- `list_followups_due`
-- `get_partner_contact_list`
-- `get_partner_outreach_timeline`
-
-### Draft Tools
-
-- `draft_intro_email`
-- `draft_whatsapp_outreach`
-- `draft_followup_email`
-- `draft_phone_call_script`
-- `draft_visit_invitation`
-
-### Guarded Writes
-
-- `create_partner_organization`
-- `add_partner_contact`
-- `log_outreach_touch`
-- `schedule_followup_task`
-- `update_partner_status`
-- `mark_partner_visit_status`
-
-### Restricted Actions Later
-
-- `send_campaign_batch`
-- `bulk_update_partner_status`
-- `archive_partner_organization`
-
-## Integrations
-
-### Hub
-
-Required.
-
-Use the same pattern as PMS:
-
-- Hub owns login and initial shell session
-- Partners app verifies handoff internally
-- Partners app creates its own local session
-- permissions are enforced inside the app
-
-### PMS
-
-Later integration.
-
-Useful future reads:
-
-- which operators or agencies have produced bookings
-- revenue or stay counts by partner
-- last referred reservation date
-
-Do not make PMS a dependency for the MVP.
-
-### Chatbot
-
-Optional later integration.
-
-If partner conversations ever happen through chatbot-managed channels, Partners can reference those conversations.
-
-But do not make Chatbot the CRM source of truth.
-
-### CMS
-
-Future integration.
-
-This is where a real CMS becomes useful:
-
-- outreach email templates
-- visit invitation copy
-- brochures
-- partnership collateral
-- standardized WhatsApp templates
-
-So the sequence should be:
-
-- build Partners CRM first
-- build CMS later
-- let Partners consume CMS content assets
+Page actions, REST endpoints, tool handlers, and jobs should all call these services.
 
 ## Permissions
 
-Suggested permissions:
+Recommended permissions:
 
-- `partners.organizations.read`
-- `partners.organizations.write`
-- `partners.contacts.read`
-- `partners.contacts.write`
+- `partners.accounts.read`
+- `partners.accounts.write`
+- `partners.people.read`
+- `partners.people.write`
+- `partners.research.read`
+- `partners.research.write`
 - `partners.outreach.read`
 - `partners.outreach.write`
+- `partners.outreach.send`
 - `partners.tasks.read`
 - `partners.tasks.write`
-- `partners.campaigns.manage`
+- `partners.templates.read`
+- `partners.templates.write`
+- `partners.sequences.manage`
+- `partners.analytics.read`
 
 ## Audit Requirements
 
-Audit these actions:
+Audit these actions at minimum:
 
-- organization created
-- contact added
+- account created
+- account merged
+- person added
+- research finding promoted
 - outreach touch logged
-- status changed
+- follow-up task created or completed
+- stage changed
 - visit status changed
-- follow-up created or completed
+- draft created
+- outbound send attempted
+- approval granted or rejected
 
-You will want to know later whether something was done by:
+The audit model must distinguish:
 
-- a human
-- an agent
-- an automation
-
-## Recommended MVP Data Model
-
-Start with these tables:
-
-### `PartnerOrganization`
-
-- core organization record
-
-### `PartnerContact`
-
-- people at that organization
-
-### `OutreachTouch`
-
-- all emails, WhatsApp messages, calls, meetings, and notes
-
-### `FollowUpTask`
-
-- action queue
-
-Optional v1.5:
-
-### `PartnerTag`
-
-- normalized tagging if campaign tags get messy
-
-Optional v2:
-
-### `PartnerVisit`
-
-- separate event table if visit tracking grows beyond one field
-
-## Recommended UI Shape
-
-Inside Hub, the app should feel similar to PMS:
-
-- dashboard
-- organizations
-- contacts
-- follow-ups
-- campaigns
-- settings later
-
-Do not start with a giant complex CRM layout.
-Build the operator workflow first.
-
-## Suggested MVP Build Order
-
-1. Organizations list and detail page
-2. Contacts support
-3. Outreach timeline
-4. Follow-up tasks
-5. Dashboard filters and saved views
-6. Basic draft tools for email, WhatsApp, and call scripts
-7. Real sending integrations later
+- `human`
+- `agent`
+- `automation`
+- `system`
 
 ## What Not To Build First
 
 Do not start with:
 
-- full email automation
-- WhatsApp send integration
-- complex sequence builders
-- score models
-- pipeline graphs
-- public CMS features
-- PMS deep coupling
+- a public-facing CMS
+- a generic WYSIWYG content system
+- fully autonomous outbound messaging with no approval controls
+- a complex drag-and-drop automation builder
+- deep PMS write coupling
+- a giant analytics suite before communication tracking exists
 
-Those are second-phase features.
+## Definition Of Success
 
-## Definition Of Done For MVP
+The upgraded Partners app is doing its job when:
 
-The first real version is good enough when:
+- a new lead can be created from incomplete research in under a minute
+- agents can collect and store findings without polluting canonical CRM records
+- the team can see who is ready for outreach and who is awaiting reply
+- follow-ups do not disappear
+- outreach history is visible and trustworthy
+- email templates and variants can be tested
+- direct sends are possible through controlled policies
+- a command like "send followups for operators with no reply after 60 days" is supported safely
+- the app remains consistent with the shared Hub agent platform
 
-- you can add an operator or agency
-- you can add one or more contacts
-- you can mark whether they have visited
-- you can log email, WhatsApp, and phone outreach
-- you can filter who has not been contacted
-- you can filter who has visited but is not active
-- you can assign and complete follow-up tasks
-- you can see the full outreach timeline for one organization
-- the app works inside Hub auth and session flow
+## Recommendation
 
-## My Recommendation
+Treat this repo as **Partners in implementation, `cms` in path only**.
 
-Build this as **Partners**, not CMS.
+The upgrade path should be:
 
-If you want the cleanest Owl's Watch platform shape:
+- fix the current v0 issues
+- adopt account and research concepts
+- add communication primitives
+- add job-backed sending
+- add attribution later
 
-- Hub = shell and identity
-- PMS = reservations and finance
-- Chatbot = guest conversation workflow
-- Partners = operator and agency CRM
-- CMS = reusable content and assets later
-
-That keeps your domain boundaries clean and gives you the exact app you actually need right now.
+That keeps the app small enough to move fast, while making it structurally correct for the way Owl's Watch will actually use it.

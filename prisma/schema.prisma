@@ -54,6 +54,23 @@ enum TaskStatus {
   cancelled
 }
 
+enum ResearchSourceType {
+  instagram
+  website
+  directory
+  manual
+  referral
+  other
+}
+
+enum ResearchFindingStatus {
+  new
+  reviewed
+  promoted
+  discarded
+  merged
+}
+
 model PartnerOrganization {
   id              String             @id @default(cuid())
   propertyId      String
@@ -76,15 +93,42 @@ model PartnerOrganization {
   visitNotes      String?
   lastContactedAt DateTime?
   nextActionAt    DateTime?
+  archivedAt      DateTime?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   contacts        PartnerContact[]
   touches         OutreachTouch[]
   tasks           FollowUpTask[]
+  researchFindings ResearchFinding[]
 
   @@index([propertyId, status])
   @@index([propertyId, visitStatus])
   @@index([propertyId, nextActionAt])
+  @@index([propertyId, archivedAt])
+}
+
+model ResearchFinding {
+  id                  String                @id @default(cuid())
+  propertyId          String
+  sourceType          ResearchSourceType    @default(manual)
+  sourceUrl           String?
+  sourceHandle        String?
+  observedName        String?
+  observedText        String?
+  extractedDataJson   Json?
+  confidence          Float?
+  status              ResearchFindingStatus @default(new)
+  proposedOrganizationId String?
+  createdByActorType  String
+  createdByActorId    String
+  createdByActorLabel String
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  proposedOrganization PartnerOrganization? @relation(fields: [proposedOrganizationId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, status, createdAt])
+  @@index([propertyId, sourceType])
+  @@index([proposedOrganizationId])
 }
 
 model PartnerContact {

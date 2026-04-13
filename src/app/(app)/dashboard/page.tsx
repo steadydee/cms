@@ -6,6 +6,7 @@ const queueLinks = [
   { href: "/organizations?view=not_contacted", label: ORGANIZATION_VIEW_LABELS.not_contacted },
   { href: "/organizations?view=awaiting_reply", label: ORGANIZATION_VIEW_LABELS.awaiting_reply },
   { href: "/organizations?view=visited_not_active", label: ORGANIZATION_VIEW_LABELS.visited_not_active },
+  { href: "/research", label: "Research inbox" },
   { href: "/organizations?view=overdue", label: ORGANIZATION_VIEW_LABELS.overdue },
   { href: "/followups?bucket=overdue", label: "Overdue follow-ups" },
   { href: "/organizations?view=unassigned", label: ORGANIZATION_VIEW_LABELS.unassigned },
@@ -25,6 +26,7 @@ export default async function DashboardPage() {
         <StatCard label="Awaiting reply" value={summary.awaitingReply} tone="blue" />
         <StatCard label="Active partners" value={summary.activePartners} tone="green" />
         <StatCard label="Visited" value={summary.visitedPartners} />
+        <StatCard label="Research inbox" value={summary.researchInboxCount} tone="slate" />
         <StatCard label="Due follow-ups" value={summary.dueFollowUps} tone="violet" />
         <StatCard label="Overdue follow-ups" value={summary.overdueFollowUps} tone="red" />
         <StatCard label="Unassigned owners" value={summary.unassignedOrganizations} tone="slate" />

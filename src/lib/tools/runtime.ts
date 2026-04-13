@@ -25,18 +25,20 @@ const PERMISSION_MAP: Record<string, "read" | "write" | "admin"> = {
   "partners.organizations.read": "read",
   "partners.outreach.read": "read",
   "partners.tasks.read": "read",
+  "partners.research.read": "read",
   "partners.organizations.write": "write",
   "partners.outreach.write": "write",
   "partners.tasks.write": "write",
+  "partners.research.write": "write",
   "partners.admin": "admin",
 };
 
 export async function getToolCatalog() {
   return {
     app: "partners",
-    appVersion: "0.1.0",
+    appVersion: "0.2.0",
     specVersion: "1.0",
-    toolCatalogVersion: "2026-04-12",
+    toolCatalogVersion: "2026-04-13",
     authModes: ["hub_session", "machine_token"],
     tools: TOOL_DEFINITIONS,
   };

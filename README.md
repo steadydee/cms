@@ -57,6 +57,24 @@ The first implementation includes:
 - tool discovery at `/.well-known/ow-tools`
 - first read and draft tools at `/api/tools/[tool]`
 
+## Environment
+
+The current app expects these variables:
+
+- `DATABASE_URL`: Postgres database for Partners data
+- `OW_PARTNERS_SESSION_SECRET`: local session signing secret
+- `OW_MODULE_HANDOFF_SECRET`: Hub-to-Partners handoff verification secret
+- `OW_PARTNERS_AGENT_TOKEN`: machine token for the current lightweight agent mode
+- `RESEND_API_KEY`: Resend API key for app-triggered email sends
+- `OW_PARTNERS_EMAIL_FROM`: verified sender, for example `info@owlswatch.com`
+- `OW_PARTNERS_EMAIL_REPLY_TO`: reply target, for example `info@owlswatch.com`
+
+Recommended email setup:
+
+- use Resend to send from `OW_PARTNERS_EMAIL_FROM`
+- route replies back to the Owl's Watch inbox through `OW_PARTNERS_EMAIL_REPLY_TO`
+- if both should be the same inbox, set both to `info@owlswatch.com`
+
 ## Recommended MVP
 
 Build in this order:

@@ -29,7 +29,7 @@ export default async function FollowupsPage({
   const activeBucket = parseBucket(bucket);
   const tasks = await listDueFollowUps(context.propertyId, {
     bucket: activeBucket,
-    assignee: context.userName,
+    assignee: activeBucket === "mine" ? context.userName : undefined,
   });
 
   const overdueCount = tasks.filter((task) => task.isOverdue).length;

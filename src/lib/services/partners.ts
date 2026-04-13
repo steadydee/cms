@@ -1,8 +1,10 @@
 import {
   OutreachChannel,
+  Prisma,
+  ResearchFindingStatus,
+  ResearchSourceType,
   RelationshipStatus,
   type PartnerType,
-  type Prisma,
   type VisitStatus,
 } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -14,7 +16,8 @@ export type SavedOrganizationView =
   | "awaiting_reply"
   | "visited_not_active"
   | "overdue"
-  | "unassigned";
+  | "unassigned"
+  | "archived";
 
 export type OrganizationFilters = {
   status?: RelationshipStatus | "all";
@@ -31,6 +34,12 @@ export type FollowUpFilters = {
   assignee?: string;
 };
 
+export type ResearchFindingFilters = {
+  status?: ResearchFindingStatus | "all";
+  sourceType?: ResearchSourceType | "all";
+  query?: string;
+};
+
 export const ORGANIZATION_VIEW_LABELS: Record<SavedOrganizationView, string> = {
   all: "All organizations",
   not_contacted: "Not contacted",
@@ -38,13 +47,52 @@ export const ORGANIZATION_VIEW_LABELS: Record<SavedOrganizationView, string> = {
   visited_not_active: "Visited, not active",
   overdue: "Overdue next steps",
   unassigned: "Unassigned owner",
+  archived: "Archived",
 };
+
+async function getScopedOrganization(
+  propertyId: string,
+  organizationId: string,
+  select?: Prisma.PartnerOrganizationSelect
+) {
+  return db.partnerOrganization.findFirst({
+    where: { id: organizationId, propertyId },
+    select: select ?? { id: true },
+  });
+}
+
+async function assertContactBelongsToOrganization(organizationId: string, contactId: string) {
+  const contact = await db.partnerContact.findFirst({
+    where: { id: contactId, organizationId },
+    select: { id: true },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found for this organization");
+  }
+}
+
+function getActorType(context: PartnersRequestContext): "human" | "agent" {
+  return context.source === "agent" ? "agent" : "human";
+}
+
+function normalizeExtractedDataJson(value: unknown): Prisma.InputJsonValue | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return undefined;
+  return value as Prisma.InputJsonValue;
+}
 
 function buildOrganizationWhere(propertyId: string, filters: OrganizationFilters): Prisma.PartnerOrganizationWhereInput {
   const now = new Date();
   const view = filters.view ?? "all";
 
   const andClauses: Prisma.PartnerOrganizationWhereInput[] = [{ propertyId }];
+
+  if (view === "archived") {
+    andClauses.push({ archivedAt: { not: null } });
+  } else {
+    andClauses.push({ archivedAt: null });
+  }
 
   if (filters.status && filters.status !== "all") {
     andClauses.push({ status: filters.status });
@@ -101,6 +149,8 @@ function buildOrganizationWhere(propertyId: string, filters: OrganizationFilters
     case "all":
     default:
       break;
+    case "archived":
+      break;
   }
 
   return { AND: andClauses };
@@ -116,27 +166,34 @@ export async function getDashboardSummary(propertyId: string) {
     awaitingReply,
     activePartners,
     visitedPartners,
+    researchInboxCount,
     dueFollowUps,
     overdueFollowUps,
     overdueOrganizations,
     unassignedOrganizations,
     recentlyTouched,
   ] = await Promise.all([
-    db.partnerOrganization.count({ where: { propertyId } }),
-    db.partnerOrganization.count({ where: { propertyId, status: "not_contacted" } }),
-    db.partnerOrganization.count({ where: { propertyId, status: "awaiting_reply" } }),
-    db.partnerOrganization.count({ where: { propertyId, status: "active_partner" } }),
-    db.partnerOrganization.count({ where: { propertyId, visitStatus: "visited" } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null, status: "not_contacted" } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null, status: "awaiting_reply" } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null, status: "active_partner" } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null, visitStatus: "visited" } }),
+    db.researchFinding.count({
+      where: {
+        propertyId,
+        status: { in: ["new", "reviewed"] },
+      },
+    }),
     db.followUpTask.count({
       where: {
-        organization: { propertyId },
+        organization: { propertyId, archivedAt: null },
         status: "open",
         dueAt: { lte: weekFromNow },
       },
     }),
     db.followUpTask.count({
       where: {
-        organization: { propertyId },
+        organization: { propertyId, archivedAt: null },
         status: "open",
         dueAt: { lt: now },
       },
@@ -144,17 +201,19 @@ export async function getDashboardSummary(propertyId: string) {
     db.partnerOrganization.count({
       where: {
         propertyId,
+        archivedAt: null,
         nextActionAt: { lt: now },
       },
     }),
     db.partnerOrganization.count({
       where: {
         propertyId,
+        archivedAt: null,
         OR: [{ ownerUserId: null }, { ownerUserId: "" }, { ownerUserName: null }, { ownerUserName: "" }],
       },
     }),
     db.outreachTouch.findMany({
-      where: { organization: { propertyId } },
+      where: { organization: { propertyId, archivedAt: null } },
       orderBy: { happenedAt: "desc" },
       take: 5,
       select: {
@@ -180,6 +239,7 @@ export async function getDashboardSummary(propertyId: string) {
     awaitingReply,
     activePartners,
     visitedPartners,
+    researchInboxCount,
     dueFollowUps,
     overdueFollowUps,
     overdueOrganizations,
@@ -216,7 +276,7 @@ export async function listOrganizations(propertyId: string, filters: Organizatio
 
 export async function getOrganizationFilterOptions(propertyId: string) {
   const organizations = await db.partnerOrganization.findMany({
-    where: { propertyId },
+    where: { propertyId, archivedAt: null },
     select: {
       source: true,
       ownerUserName: true,
@@ -245,13 +305,14 @@ export async function getOrganizationFilterOptions(propertyId: string) {
 export async function getOrganizationViewCounts(propertyId: string) {
   const now = new Date();
 
-  const [all, notContacted, awaitingReply, visitedNotActive, overdue, unassigned] = await Promise.all([
-    db.partnerOrganization.count({ where: { propertyId } }),
-    db.partnerOrganization.count({ where: { propertyId, status: "not_contacted" } }),
-    db.partnerOrganization.count({ where: { propertyId, status: "awaiting_reply" } }),
+  const [all, notContacted, awaitingReply, visitedNotActive, overdue, unassigned, archived] = await Promise.all([
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null, status: "not_contacted" } }),
+    db.partnerOrganization.count({ where: { propertyId, archivedAt: null, status: "awaiting_reply" } }),
     db.partnerOrganization.count({
       where: {
         propertyId,
+        archivedAt: null,
         visitStatus: "visited",
         status: { not: "active_partner" },
       },
@@ -259,13 +320,21 @@ export async function getOrganizationViewCounts(propertyId: string) {
     db.partnerOrganization.count({
       where: {
         propertyId,
+        archivedAt: null,
         nextActionAt: { lt: now },
       },
     }),
     db.partnerOrganization.count({
       where: {
         propertyId,
+        archivedAt: null,
         OR: [{ ownerUserId: null }, { ownerUserId: "" }, { ownerUserName: null }, { ownerUserName: "" }],
+      },
+    }),
+    db.partnerOrganization.count({
+      where: {
+        propertyId,
+        archivedAt: { not: null },
       },
     }),
   ]);
@@ -277,7 +346,45 @@ export async function getOrganizationViewCounts(propertyId: string) {
     visited_not_active: visitedNotActive,
     overdue,
     unassigned,
+    archived,
   } satisfies Record<SavedOrganizationView, number>;
+}
+
+export async function listResearchFindings(propertyId: string, filters: ResearchFindingFilters = {}) {
+  const andClauses: Prisma.ResearchFindingWhereInput[] = [{ propertyId }];
+
+  if (filters.status && filters.status !== "all") {
+    andClauses.push({ status: filters.status });
+  }
+
+  if (filters.sourceType && filters.sourceType !== "all") {
+    andClauses.push({ sourceType: filters.sourceType });
+  }
+
+  if (filters.query?.trim()) {
+    const query = filters.query.trim();
+    andClauses.push({
+      OR: [
+        { observedName: { contains: query, mode: "insensitive" } },
+        { sourceHandle: { contains: query, mode: "insensitive" } },
+        { sourceUrl: { contains: query, mode: "insensitive" } },
+        { observedText: { contains: query, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  return db.researchFinding.findMany({
+    where: { AND: andClauses },
+    include: {
+      proposedOrganization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: [{ createdAt: "desc" }],
+  });
 }
 
 export async function getOrganizationDetail(id: string, propertyId: string) {
@@ -320,6 +427,57 @@ export async function getOrganizationDetail(id: string, propertyId: string) {
   };
 }
 
+export async function createResearchFinding(
+  context: PartnersRequestContext,
+  input: {
+    sourceType?: ResearchSourceType;
+    sourceUrl?: string;
+    sourceHandle?: string;
+    observedName?: string;
+    observedText?: string;
+    extractedDataJson?: unknown;
+    confidence?: number;
+    proposedOrganizationId?: string;
+  }
+) {
+  const observedName = input.observedName?.trim() || null;
+  const sourceUrl = input.sourceUrl?.trim() || null;
+  const sourceHandle = input.sourceHandle?.trim() || null;
+  const observedText = input.observedText?.trim() || null;
+
+  if (!observedName && !sourceUrl && !sourceHandle && !observedText && input.extractedDataJson === undefined) {
+    throw new Error("A research finding needs a name, source, notes, or extracted data");
+  }
+
+  if (input.proposedOrganizationId) {
+    const organization = await getScopedOrganization(context.propertyId, input.proposedOrganizationId);
+    if (!organization) {
+      throw new Error("Proposed organization not found");
+    }
+  }
+
+  const confidence = typeof input.confidence === "number" && Number.isFinite(input.confidence)
+    ? Math.max(0, Math.min(1, input.confidence))
+    : null;
+
+  return db.researchFinding.create({
+    data: {
+      propertyId: context.propertyId,
+      sourceType: input.sourceType ?? "manual",
+      sourceUrl,
+      sourceHandle,
+      observedName,
+      observedText,
+      extractedDataJson: normalizeExtractedDataJson(input.extractedDataJson),
+      confidence,
+      proposedOrganizationId: input.proposedOrganizationId?.trim() || null,
+      createdByActorType: getActorType(context),
+      createdByActorId: context.userId,
+      createdByActorLabel: context.userName,
+    },
+  });
+}
+
 export async function listDueFollowUps(propertyId: string, filters: FollowUpFilters = {}) {
   const now = new Date();
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -327,21 +485,21 @@ export async function listDueFollowUps(propertyId: string, filters: FollowUpFilt
 
   const andClauses: Prisma.FollowUpTaskWhereInput[] = [
     {
-      organization: { propertyId },
+      organization: { propertyId, archivedAt: null },
       status: "open",
     },
   ];
-
-  if (filters.assignee?.trim()) {
-    andClauses.push({ assignedToUserName: filters.assignee.trim() });
-  }
 
   if (bucket === "overdue") {
     andClauses.push({ dueAt: { lt: now } });
   } else if (bucket === "this_week") {
     andClauses.push({ dueAt: { gte: now, lte: weekFromNow } });
   } else if (bucket === "mine") {
-    andClauses.push({ assignedToUserName: filters.assignee?.trim() ?? "" });
+    const assignee = filters.assignee?.trim();
+    if (!assignee) {
+      throw new Error("An assignee is required for the mine follow-up view");
+    }
+    andClauses.push({ assignedToUserName: assignee });
   }
 
   const tasks = await db.followUpTask.findMany({
@@ -404,6 +562,8 @@ export async function createOrganization(
       marketNotes: input.marketNotes?.trim() || null,
       ownerUserId: context.userId,
       ownerUserName: context.userName,
+      status: "not_contacted",
+      visitStatus: "never_invited",
       nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : null,
     },
   });
@@ -423,10 +583,7 @@ export async function addContact(
     isPrimary?: boolean;
   }
 ) {
-  const organization = await db.partnerOrganization.findFirst({
-    where: { id: input.organizationId, propertyId: context.propertyId },
-    select: { id: true },
-  });
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
   if (!organization) {
     throw new Error("Organization not found");
   }
@@ -468,18 +625,20 @@ export async function logOutreachTouch(
     summary: string;
     outcome?: string;
     nextStep?: string;
+    status?: RelationshipStatus;
   }
 ) {
   if (!input.summary.trim()) {
     throw new Error("Outreach summary is required");
   }
 
-  const organization = await db.partnerOrganization.findFirst({
-    where: { id: input.organizationId, propertyId: context.propertyId },
-    select: { id: true },
-  });
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
   if (!organization) {
     throw new Error("Organization not found");
+  }
+
+  if (input.contactId) {
+    await assertContactBelongsToOrganization(input.organizationId, input.contactId);
   }
 
   const happenedAt = input.happenedAt ? new Date(input.happenedAt) : new Date();
@@ -504,7 +663,7 @@ export async function logOutreachTouch(
       where: { id: input.organizationId },
       data: {
         lastContactedAt: happenedAt,
-        status: "contacted",
+        status: input.status ?? "contacted",
       },
     });
 
@@ -537,12 +696,13 @@ export async function scheduleFollowUpTask(
     throw new Error("Task title is required");
   }
 
-  const organization = await db.partnerOrganization.findFirst({
-    where: { id: input.organizationId, propertyId: context.propertyId },
-    select: { id: true },
-  });
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
   if (!organization) {
     throw new Error("Organization not found");
+  }
+
+  if (input.contactId) {
+    await assertContactBelongsToOrganization(input.organizationId, input.contactId);
   }
 
   const dueAt = new Date(input.dueAt);
@@ -585,13 +745,16 @@ export async function updateOrganizationStatus(
     visitNotes?: string;
   }
 ) {
-  const organization = await db.partnerOrganization.findFirst({
-    where: { id: input.organizationId, propertyId: context.propertyId },
-    select: { id: true },
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId, {
+    id: true,
+    visitStatus: true,
+    lastVisitedAt: true,
   });
   if (!organization) {
     throw new Error("Organization not found");
   }
+
+  const isNewVisit = organization.visitStatus !== "visited" && input.visitStatus === "visited";
 
   return db.partnerOrganization.update({
     where: { id: input.organizationId },
@@ -599,7 +762,7 @@ export async function updateOrganizationStatus(
       status: input.status,
       visitStatus: input.visitStatus,
       visitNotes: input.visitNotes?.trim() || null,
-      lastVisitedAt: input.visitStatus === "visited" ? new Date() : null,
+      lastVisitedAt: isNewVisit ? new Date() : organization.lastVisitedAt,
     },
   });
 }
@@ -616,10 +779,7 @@ export async function updateOrganizationProfile(
     priority?: number;
   }
 ) {
-  const organization = await db.partnerOrganization.findFirst({
-    where: { id: input.organizationId, propertyId: context.propertyId },
-    select: { id: true },
-  });
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
   if (!organization) {
     throw new Error("Organization not found");
   }
@@ -638,6 +798,52 @@ export async function updateOrganizationProfile(
       ownerUserId: input.ownerUserId?.trim() || null,
       ownerUserName: input.ownerUserName?.trim() || null,
       priority: typeof input.priority === "number" && Number.isFinite(input.priority) ? input.priority : 0,
+    },
+  });
+}
+
+export async function archiveOrganization(
+  context: PartnersRequestContext,
+  organizationId: string
+) {
+  const organization = await getScopedOrganization(context.propertyId, organizationId, {
+    id: true,
+    archivedAt: true,
+  });
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+  if (organization.archivedAt) {
+    return organization;
+  }
+
+  return db.partnerOrganization.update({
+    where: { id: organizationId },
+    data: {
+      archivedAt: new Date(),
+    },
+  });
+}
+
+export async function unarchiveOrganization(
+  context: PartnersRequestContext,
+  organizationId: string
+) {
+  const organization = await getScopedOrganization(context.propertyId, organizationId, {
+    id: true,
+    archivedAt: true,
+  });
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+  if (!organization.archivedAt) {
+    return organization;
+  }
+
+  return db.partnerOrganization.update({
+    where: { id: organizationId },
+    data: {
+      archivedAt: null,
     },
   });
 }

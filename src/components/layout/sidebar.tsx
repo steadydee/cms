@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Building2,
   ListTodo,
+  Search,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -21,7 +22,8 @@ type NavItem = {
 
 const navigation: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Organizations", href: "/organizations", icon: Building2 },
+  { label: "Accounts", href: "/organizations", icon: Building2 },
+  { label: "Research", href: "/research", icon: Search },
   { label: "Follow-ups", href: "/followups", icon: ListTodo },
 ];
 

@@ -26,6 +26,7 @@ const savedViews: SavedOrganizationView[] = [
   "visited_not_active",
   "overdue",
   "unassigned",
+  "archived",
 ];
 
 export default async function OrganizationsPage({
@@ -181,7 +182,8 @@ export default async function OrganizationsPage({
 
         <form action={bulkOrganizationAction} className="mt-6 space-y-4">
           <div className="grid gap-3 rounded-2xl border border-[#ece7df] bg-[#faf8f4] p-4 md:grid-cols-[1.3fr_1.4fr_1fr_1fr_auto]">
-            <select name="bulkAction" defaultValue="mark_contacted" className={inputClassName}>
+            <select name="bulkAction" defaultValue="" className={inputClassName}>
+              <option value="">Choose bulk action</option>
               <option value="mark_contacted">Mark contacted</option>
               <option value="mark_awaiting_reply">Mark awaiting reply</option>
               <option value="assign_to_me">Assign owner to me</option>

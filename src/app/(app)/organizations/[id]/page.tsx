@@ -1,11 +1,15 @@
 import { notFound } from "next/navigation";
 import { getPartnersRequestContext } from "@/lib/auth";
-import { getOrganizationDetail } from "@/lib/services/partners";
+import { draftIntroEmail, getOrganizationDetail } from "@/lib/services/partners";
 import {
   addContactAction,
+  archiveOrganizationAction,
   assignOrganizationOwnerToMeAction,
   createFollowUpTaskAction,
+  logIntroEmailSentAction,
   logOutreachTouchAction,
+  sendIntroEmailAction,
+  unarchiveOrganizationAction,
   updateOrganizationProfileAction,
   updateOrganizationStatusAction,
 } from "@/app/(app)/organizations/actions";
@@ -39,6 +43,15 @@ export default async function OrganizationDetailPage({
     notFound();
   }
 
+  const introEmail = draftIntroEmail(organization);
+  const primaryEmailContact = organization.contacts.find((contact) => contact.isPrimary && contact.email)
+    ?? organization.contacts.find((contact) => contact.email);
+  const recipientEmail = primaryEmailContact?.email || organization.email || "";
+  const recipientLabel = primaryEmailContact?.fullName || organization.name;
+  const mailToHref = recipientEmail
+    ? buildMailToHref(recipientEmail, introEmail.subject, introEmail.body)
+    : null;
+
   return (
     <div className="space-y-8">
       <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -50,13 +63,35 @@ export default async function OrganizationDetailPage({
               <p className="mt-2 text-[14px] text-[#64748b]">
                 {[organization.type, organization.country, organization.city].filter(Boolean).join(" · ") || "No market metadata yet"}
               </p>
+              {organization.archivedAt ? (
+                <p className="mt-3 inline-flex rounded-full bg-[#fff7ed] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#c2410c]">
+                  Archived
+                </p>
+              ) : null}
             </div>
-            <form action={assignOrganizationOwnerToMeAction}>
-              <input type="hidden" name="organizationId" value={organization.id} />
-              <button type="submit" className="rounded-lg border border-[#0f766e] px-4 py-2.5 text-[13px] font-medium text-[#0f766e]">
-                Assign to me
-              </button>
-            </form>
+            <div className="flex flex-wrap gap-3">
+              <form action={assignOrganizationOwnerToMeAction}>
+                <input type="hidden" name="organizationId" value={organization.id} />
+                <button type="submit" className="rounded-lg border border-[#0f766e] px-4 py-2.5 text-[13px] font-medium text-[#0f766e]">
+                  Assign to me
+                </button>
+              </form>
+              {organization.archivedAt ? (
+                <form action={unarchiveOrganizationAction}>
+                  <input type="hidden" name="organizationId" value={organization.id} />
+                  <button type="submit" className="rounded-lg border border-[#c2410c] px-4 py-2.5 text-[13px] font-medium text-[#c2410c]">
+                    Unarchive
+                  </button>
+                </form>
+              ) : (
+                <form action={archiveOrganizationAction}>
+                  <input type="hidden" name="organizationId" value={organization.id} />
+                  <button type="submit" className="rounded-lg border border-[#c2410c] px-4 py-2.5 text-[13px] font-medium text-[#c2410c]">
+                    Archive
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
 
           <dl className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -172,6 +207,110 @@ export default async function OrganizationDetailPage({
               Add contact
             </button>
           </form>
+        </Card>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <Card title="First outreach" subtitle="Draft the intro email before you log a touch">
+          <div className="mt-6 space-y-4">
+            <div className="rounded-2xl border border-[#ece7df] bg-[#faf8f4] px-4 py-4">
+              <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Recommended recipient</p>
+              <p className="mt-2 text-[14px] text-[#1e293b]">
+                {recipientEmail ? `${recipientLabel} · ${recipientEmail}` : "No email address yet"}
+              </p>
+              {!recipientEmail ? (
+                <p className="mt-2 text-[13px] text-[#b45309]">
+                  Add a contact email or organization email first. Then this template can be opened in your mail app.
+                </p>
+              ) : null}
+            </div>
+
+            <div>
+              <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template subject</label>
+              <input readOnly value={introEmail.subject} className={`${inputClassName} mt-2 bg-[#f8fafc]`} />
+            </div>
+
+            <div>
+              <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template body</label>
+              <textarea readOnly value={introEmail.body} className="mt-2 min-h-52 w-full rounded-xl border border-[#d7d2c9] bg-[#f8fafc] px-3 py-2.5 text-[14px] text-[#1e293b] outline-none" />
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <form action={sendIntroEmailAction}>
+                <input type="hidden" name="organizationId" value={organization.id} />
+                <input type="hidden" name="contactId" value={primaryEmailContact?.id || ""} />
+                <input type="hidden" name="recipientEmail" value={recipientEmail} />
+                <input type="hidden" name="recipientLabel" value={recipientLabel} />
+                <input type="hidden" name="subject" value={introEmail.subject} />
+                <input type="hidden" name="body" value={introEmail.body} />
+                <button
+                  type="submit"
+                  disabled={!recipientEmail}
+                  className={`rounded-lg px-4 py-2.5 text-[14px] font-medium text-white ${
+                    recipientEmail ? "bg-[#0f766e]" : "bg-[#cbd5e1]"
+                  }`}
+                >
+                  Send with Resend
+                </button>
+              </form>
+
+              {mailToHref ? (
+                <a
+                  href={mailToHref}
+                  className="rounded-lg border border-[#0f766e] px-4 py-2.5 text-[14px] font-medium text-[#0f766e]"
+                >
+                  Open in email app
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-lg border border-[#cbd5e1] px-4 py-2.5 text-[14px] font-medium text-[#94a3b8]"
+                >
+                  Open in email app
+                </button>
+              )}
+
+              <form action={logIntroEmailSentAction}>
+                <input type="hidden" name="organizationId" value={organization.id} />
+                <input type="hidden" name="contactId" value={primaryEmailContact?.id || ""} />
+                <input type="hidden" name="subject" value={introEmail.subject} />
+                <input type="hidden" name="recipientLabel" value={recipientLabel} />
+                <button
+                  type="submit"
+                  disabled={!recipientEmail}
+                  className={`rounded-lg px-4 py-2.5 text-[14px] font-medium ${
+                    recipientEmail
+                      ? "border border-[#1e293b] text-[#1e293b]"
+                      : "border border-[#cbd5e1] text-[#94a3b8]"
+                  }`}
+                >
+                  Log manual send
+                </button>
+              </form>
+            </div>
+
+            <p className="text-[13px] text-[#64748b]">
+              Use Resend for app-triggered sends or your mail app for manual sends. Either path records the intro email and moves the account to awaiting reply.
+            </p>
+          </div>
+        </Card>
+
+        <Card title="What next" subtitle="Use status and follow-ups intentionally">
+          <div className="mt-6 space-y-4 text-[14px] text-[#475569]">
+            <div className="rounded-2xl border border-[#ece7df] px-4 py-4">
+              <p className="font-medium text-[#1e293b]">New account</p>
+              <p className="mt-2">A freshly created account should start as <span className="font-medium">not contacted</span>.</p>
+            </div>
+            <div className="rounded-2xl border border-[#ece7df] px-4 py-4">
+              <p className="font-medium text-[#1e293b]">After first email</p>
+              <p className="mt-2">Use the intro template, send it, then log it as sent. That moves the status to <span className="font-medium">awaiting reply</span>.</p>
+            </div>
+            <div className="rounded-2xl border border-[#ece7df] px-4 py-4">
+              <p className="font-medium text-[#1e293b]">If nobody replies</p>
+              <p className="mt-2">Create a follow-up task so the account shows up in the queue instead of disappearing.</p>
+            </div>
+          </div>
         </Card>
       </section>
 
@@ -320,6 +459,15 @@ function toDateTimeLocalValue(value: Date | null) {
 
   const localValue = new Date(value.getTime() - value.getTimezoneOffset() * 60_000);
   return localValue.toISOString().slice(0, 16);
+}
+
+function buildMailToHref(to: string, subject: string, body: string) {
+  const params = new URLSearchParams({
+    subject,
+    body,
+  });
+
+  return `mailto:${to}?${params.toString()}`;
 }
 
 const inputClassName =

@@ -1,15 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { authorizePartnersAccess } from "@/lib/auth";
+import { sendEmailWithResend } from "@/lib/email";
 import {
   addContact,
+  archiveOrganization,
   assignOrganizationOwnerToSelf,
   bulkScheduleFollowUpTasks,
   bulkUpdateOrganizations,
   createOrganization,
   logOutreachTouch,
   scheduleFollowUpTask,
+  unarchiveOrganization,
   updateOrganizationProfile,
   updateOrganizationStatus,
 } from "@/lib/services/partners";
@@ -120,6 +124,78 @@ export async function logOutreachTouchAction(formData: FormData) {
   revalidatePath(`/organizations/${organizationId}`);
 }
 
+export async function logIntroEmailSentAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const contactId = String(formData.get("contactId") ?? "") || undefined;
+  const subject = String(formData.get("subject") ?? "").trim();
+  const recipientLabel = String(formData.get("recipientLabel") ?? "").trim();
+
+  await logOutreachTouch(access.context, {
+    organizationId,
+    contactId,
+    channel: "email",
+    subject,
+    summary: recipientLabel
+      ? `Sent intro email template to ${recipientLabel}.`
+      : "Sent intro email template.",
+    outcome: "Awaiting reply",
+    nextStep: "Follow up if no reply.",
+    status: "awaiting_reply",
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath("/followups");
+  revalidatePath(`/organizations/${organizationId}`);
+}
+
+export async function sendIntroEmailAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const contactId = String(formData.get("contactId") ?? "") || undefined;
+  const recipientEmail = String(formData.get("recipientEmail") ?? "").trim();
+  const recipientLabel = String(formData.get("recipientLabel") ?? "").trim();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "");
+
+  if (!recipientEmail) {
+    throw new Error("Recipient email is required");
+  }
+
+  await sendEmailWithResend({
+    to: recipientEmail,
+    subject,
+    text: body,
+  });
+
+  await logOutreachTouch(access.context, {
+    organizationId,
+    contactId,
+    channel: "email",
+    subject,
+    summary: recipientLabel
+      ? `Sent intro email template to ${recipientLabel} via Resend.`
+      : "Sent intro email template via Resend.",
+    outcome: "Awaiting reply",
+    nextStep: "Follow up if no reply.",
+    status: "awaiting_reply",
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath("/followups");
+  revalidatePath(`/organizations/${organizationId}`);
+}
+
 export async function createFollowUpTaskAction(formData: FormData) {
   const access = await authorizePartnersAccess("write");
   if (!access.ok) {
@@ -196,6 +272,38 @@ export async function assignOrganizationOwnerToMeAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath(`/organizations/${organizationId}`);
+}
+
+export async function archiveOrganizationAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationId = String(formData.get("organizationId") ?? "");
+  await archiveOrganization(access.context, organizationId);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath("/followups");
+  revalidatePath(`/organizations/${organizationId}`);
+  redirect("/organizations");
+}
+
+export async function unarchiveOrganizationAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationId = String(formData.get("organizationId") ?? "");
+  await unarchiveOrganization(access.context, organizationId);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath("/followups");
+  revalidatePath(`/organizations/${organizationId}`);
+  redirect(`/organizations/${organizationId}`);
 }
 
 export async function bulkOrganizationAction(formData: FormData) {
