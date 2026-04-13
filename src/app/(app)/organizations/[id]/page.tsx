@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPartnersRequestContext } from "@/lib/auth";
 import { draftIntroEmail, getOrganizationDetail } from "@/lib/services/partners";
+import { getEmailDeliveryStatus } from "@/lib/email";
 import {
   addContactAction,
   archiveOrganizationAction,
@@ -50,6 +51,7 @@ export default async function OrganizationDetailPage({
   const mailToHref = recipientEmail
     ? buildMailToHref(recipientEmail, introEmail.subject, introEmail.body)
     : null;
+  const emailDelivery = getEmailDeliveryStatus();
 
   return (
     <div className="space-y-8">
@@ -208,6 +210,32 @@ export default async function OrganizationDetailPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <Card title="First outreach" subtitle="Draft the intro email before you log a touch">
           <div className="mt-6 space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className={`rounded-2xl border px-4 py-4 ${emailDelivery.resendConfigured ? "border-[#bbf7d0] bg-[#ecfdf5]" : "border-[#fecaca] bg-[#fef2f2]"}`}>
+                <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Delivery setup</p>
+                <p className="mt-2 text-[14px] text-[#1e293b]">
+                  {emailDelivery.resendConfigured ? "Resend is configured for this app." : "Resend is not configured for this app."}
+                </p>
+                <p className="mt-2 text-[13px] text-[#64748b]">
+                  {emailDelivery.resendConfigured
+                    ? "App-triggered sends are available."
+                    : "Set the sender configuration before using app-triggered sends."}
+                </p>
+              </div>
+
+              <div className={`rounded-2xl border px-4 py-4 ${recipientEmail ? "border-[#bfdbfe] bg-[#eff6ff]" : "border-[#fed7aa] bg-[#fff7ed]"}`}>
+                <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Recipient</p>
+                <p className="mt-2 text-[14px] text-[#1e293b]">
+                  {recipientEmail ? `${recipientLabel} · ${recipientEmail}` : "No recipient email on this record yet."}
+                </p>
+                <p className="mt-2 text-[13px] text-[#64748b]">
+                  {recipientEmail
+                    ? "You can send or draft the intro email now."
+                    : "Add a contact email or organization email first."}
+                </p>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-[#ece7df] bg-[#faf8f4] px-4 py-4">
               <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Recommended recipient</p>
               <p className="mt-2 text-[14px] text-[#1e293b]">
@@ -240,9 +268,9 @@ export default async function OrganizationDetailPage({
                 <input type="hidden" name="body" value={introEmail.body} />
                 <button
                   type="submit"
-                  disabled={!recipientEmail}
+                  disabled={!recipientEmail || !emailDelivery.resendConfigured}
                   className={`rounded-lg px-4 py-2.5 text-[14px] font-medium text-white ${
-                    recipientEmail ? "bg-[#0f766e]" : "bg-[#cbd5e1]"
+                    recipientEmail && emailDelivery.resendConfigured ? "bg-[#0f766e]" : "bg-[#cbd5e1]"
                   }`}
                 >
                   Send with Resend

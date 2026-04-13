@@ -12,6 +12,19 @@ type ResendSendResponse = {
   };
 };
 
+export function getEmailDeliveryStatus() {
+  const apiKeyConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
+  const fromConfigured = Boolean(process.env.OW_PARTNERS_EMAIL_FROM?.trim());
+  const replyToConfigured = Boolean(process.env.OW_PARTNERS_EMAIL_REPLY_TO?.trim());
+
+  return {
+    apiKeyConfigured,
+    fromConfigured,
+    replyToConfigured,
+    resendConfigured: apiKeyConfigured && fromConfigured,
+  };
+}
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
