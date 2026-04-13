@@ -29,6 +29,14 @@ export type OrganizationFilters = {
   view?: SavedOrganizationView;
 };
 
+export type PaginatedOrganizationsResult = {
+  items: Awaited<ReturnType<typeof listOrganizations>>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 export type FollowUpFilters = {
   bucket?: "all" | "overdue" | "this_week" | "mine";
   assignee?: string;
@@ -272,6 +280,88 @@ export async function listOrganizations(propertyId: string, filters: Organizatio
     ...organization,
     isOverdueNextAction: Boolean(organization.nextActionAt && organization.nextActionAt.getTime() < now),
   }));
+}
+
+export async function listOrganizationsPage(
+  propertyId: string,
+  filters: OrganizationFilters & { page?: number; pageSize?: number } = {}
+): Promise<PaginatedOrganizationsResult> {
+  const where = buildOrganizationWhere(propertyId, filters);
+  const pageSize = Math.max(1, Math.min(50, filters.pageSize ?? 10));
+  const page = Math.max(1, filters.page ?? 1);
+  const skip = (page - 1) * pageSize;
+
+  const [total, organizations] = await Promise.all([
+    db.partnerOrganization.count({ where }),
+    db.partnerOrganization.findMany({
+      where,
+      include: {
+        _count: {
+          select: {
+            contacts: true,
+            tasks: true,
+            touches: true,
+          },
+        },
+      },
+      orderBy: [
+        { priority: "desc" },
+        { nextActionAt: "asc" },
+        { updatedAt: "desc" },
+      ],
+      skip,
+      take: pageSize,
+    }),
+  ]);
+
+  const now = Date.now();
+  const items = organizations.map((organization) => ({
+    ...organization,
+    isOverdueNextAction: Boolean(organization.nextActionAt && organization.nextActionAt.getTime() < now),
+  }));
+
+  return {
+    items,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+export async function listRecentlyActiveOrganizations(propertyId: string, take = 5) {
+  return db.partnerOrganization.findMany({
+    where: {
+      propertyId,
+      archivedAt: null,
+      OR: [
+        { lastContactedAt: { not: null } },
+        { nextActionAt: { not: null } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      ownerUserName: true,
+      source: true,
+      city: true,
+      country: true,
+      lastContactedAt: true,
+      nextActionAt: true,
+      _count: {
+        select: {
+          touches: true,
+          tasks: true,
+        },
+      },
+    },
+    orderBy: [
+      { lastContactedAt: "desc" },
+      { updatedAt: "desc" },
+    ],
+    take,
+  });
 }
 
 export async function getOrganizationFilterOptions(propertyId: string) {
