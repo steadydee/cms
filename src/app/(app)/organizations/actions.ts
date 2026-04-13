@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import { authorizePartnersAccess } from "@/lib/auth";
 import {
   addContact,
+  assignOrganizationOwnerToSelf,
+  bulkScheduleFollowUpTasks,
+  bulkUpdateOrganizations,
   createOrganization,
   logOutreachTouch,
   scheduleFollowUpTask,
+  updateOrganizationProfile,
   updateOrganizationStatus,
 } from "@/lib/services/partners";
 import { OutreachChannel, RelationshipStatus, VisitStatus, type PartnerType } from "@prisma/client";
@@ -129,6 +133,7 @@ export async function createFollowUpTaskAction(formData: FormData) {
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? ""),
     dueAt: String(formData.get("dueAt") ?? ""),
+    assignedToUserName: String(formData.get("assignedToUserName") ?? ""),
   });
 
   revalidatePath("/dashboard");
@@ -153,4 +158,80 @@ export async function updateOrganizationStatusAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath(`/organizations/${organizationId}`);
+}
+
+export async function updateOrganizationProfileAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const rawPriority = String(formData.get("priority") ?? "").trim();
+
+  await updateOrganizationProfile(access.context, {
+    organizationId,
+    source: String(formData.get("source") ?? ""),
+    marketNotes: String(formData.get("marketNotes") ?? ""),
+    nextActionAt: String(formData.get("nextActionAt") ?? ""),
+    ownerUserId: String(formData.get("ownerUserId") ?? ""),
+    ownerUserName: String(formData.get("ownerUserName") ?? ""),
+    priority: rawPriority ? Number(rawPriority) : 0,
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath(`/organizations/${organizationId}`);
+}
+
+export async function assignOrganizationOwnerToMeAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationId = String(formData.get("organizationId") ?? "");
+  await assignOrganizationOwnerToSelf(access.context, organizationId);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath(`/organizations/${organizationId}`);
+}
+
+export async function bulkOrganizationAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const organizationIds = formData
+    .getAll("organizationId")
+    .map((value) => String(value))
+    .filter(Boolean);
+
+  const action = String(formData.get("bulkAction") ?? "");
+
+  if (action === "schedule_followup") {
+    await bulkScheduleFollowUpTasks(access.context, {
+      organizationIds,
+      title: String(formData.get("followUpTitle") ?? ""),
+      description: String(formData.get("followUpDescription") ?? ""),
+      dueAt: String(formData.get("followUpDueAt") ?? ""),
+    });
+  } else if (
+    action === "mark_contacted"
+    || action === "mark_awaiting_reply"
+    || action === "assign_to_me"
+  ) {
+    await bulkUpdateOrganizations(access.context, {
+      organizationIds,
+      action,
+    });
+  } else {
+    throw new Error("Select a valid bulk action");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+  revalidatePath("/followups");
 }
