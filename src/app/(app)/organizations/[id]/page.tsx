@@ -104,13 +104,21 @@ export default async function OrganizationDetailPage({
 
         <div className="rounded-3xl border border-[#ddd6cc] bg-white p-6 shadow-[0_8px_30px_rgba(30,41,59,0.05)]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#94a3b8]">Profile and ownership</p>
-          <h2 className="mt-2 text-[22px] font-semibold tracking-tight">Keep the record organized</h2>
+          <h2 className="mt-2 text-[22px] font-semibold tracking-tight">Edit organization details</h2>
           <p className="mt-2 text-[13px] text-[#64748b]">
             Owner is a manual field for now. Pick the person responsible for this relationship, even if they do not log into the app yet.
           </p>
           <form action={updateOrganizationProfileAction} className="mt-6 space-y-4">
             <input type="hidden" name="organizationId" value={organization.id} />
             <input name="ownerUserName" defaultValue={organization.ownerUserName || ""} placeholder="Owner name" className={inputClassName} />
+            <input name="email" type="email" defaultValue={organization.email || ""} placeholder="General email" className={inputClassName} />
+            <input name="whatsapp" defaultValue={organization.whatsapp || ""} placeholder="WhatsApp" className={inputClassName} />
+            <input name="phone" defaultValue={organization.phone || ""} placeholder="Phone" className={inputClassName} />
+            <input name="website" defaultValue={organization.website || ""} placeholder="Website" className={inputClassName} />
+            <div className="grid gap-4 md:grid-cols-2">
+              <input name="country" defaultValue={organization.country || ""} placeholder="Country" className={inputClassName} />
+              <input name="city" defaultValue={organization.city || ""} placeholder="City" className={inputClassName} />
+            </div>
             <input name="source" defaultValue={organization.source || ""} placeholder="Campaign or source" className={inputClassName} />
             <input name="priority" type="number" min="0" max="5" defaultValue={organization.priority} className={inputClassName} />
             <input name="nextActionAt" type="datetime-local" defaultValue={toDateTimeLocalValue(organization.nextActionAt)} className={inputClassName} />

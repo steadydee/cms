@@ -7,7 +7,6 @@ import { sendEmailWithResend } from "@/lib/email";
 import {
   addContact,
   archiveOrganization,
-  assignOrganizationOwnerToSelf,
   bulkScheduleFollowUpTasks,
   bulkUpdateOrganizations,
   createOrganization,
@@ -247,27 +246,18 @@ export async function updateOrganizationProfileAction(formData: FormData) {
 
   await updateOrganizationProfile(access.context, {
     organizationId,
+    country: String(formData.get("country") ?? ""),
+    city: String(formData.get("city") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    whatsapp: String(formData.get("whatsapp") ?? ""),
+    website: String(formData.get("website") ?? ""),
     source: String(formData.get("source") ?? ""),
     marketNotes: String(formData.get("marketNotes") ?? ""),
     nextActionAt: String(formData.get("nextActionAt") ?? ""),
-    ownerUserId: String(formData.get("ownerUserId") ?? ""),
     ownerUserName: String(formData.get("ownerUserName") ?? ""),
     priority: rawPriority ? Number(rawPriority) : 0,
   });
-
-  revalidatePath("/dashboard");
-  revalidatePath("/organizations");
-  revalidatePath(`/organizations/${organizationId}`);
-}
-
-export async function assignOrganizationOwnerToMeAction(formData: FormData) {
-  const access = await authorizePartnersAccess("write");
-  if (!access.ok) {
-    throw new Error(access.message);
-  }
-
-  const organizationId = String(formData.get("organizationId") ?? "");
-  await assignOrganizationOwnerToSelf(access.context, organizationId);
 
   revalidatePath("/dashboard");
   revalidatePath("/organizations");

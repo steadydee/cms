@@ -771,6 +771,12 @@ export async function updateOrganizationProfile(
   context: PartnersRequestContext,
   input: {
     organizationId: string;
+    country?: string;
+    city?: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+    website?: string;
     source?: string;
     marketNotes?: string;
     nextActionAt?: string;
@@ -792,6 +798,12 @@ export async function updateOrganizationProfile(
   return db.partnerOrganization.update({
     where: { id: input.organizationId },
     data: {
+      country: input.country?.trim() || null,
+      city: input.city?.trim() || null,
+      email: input.email?.trim() || null,
+      phone: input.phone?.trim() || null,
+      whatsapp: input.whatsapp?.trim() || null,
+      website: input.website?.trim() || null,
       source: input.source?.trim() || null,
       marketNotes: input.marketNotes?.trim() || null,
       nextActionAt,
