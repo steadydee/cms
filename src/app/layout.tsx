@@ -9,7 +9,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Partners",
-  description: "Partners CRM for operators, agencies, and outreach follow-up.",
+  description: "Partners CRM for operators, agencies, research triage, and outreach tasks.",
 };
 
 export default function RootLayout({

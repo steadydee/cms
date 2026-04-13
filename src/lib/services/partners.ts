@@ -478,6 +478,97 @@ export async function createResearchFinding(
   });
 }
 
+export async function updateResearchFindingStatus(
+  context: PartnersRequestContext,
+  input: {
+    findingId: string;
+    status: ResearchFindingStatus;
+  }
+) {
+  const finding = await db.researchFinding.findFirst({
+    where: { id: input.findingId, propertyId: context.propertyId },
+    select: { id: true },
+  });
+
+  if (!finding) {
+    throw new Error("Research finding not found");
+  }
+
+  return db.researchFinding.update({
+    where: { id: input.findingId },
+    data: { status: input.status },
+  });
+}
+
+export async function promoteResearchFindingToOrganization(
+  context: PartnersRequestContext,
+  input: {
+    findingId: string;
+  }
+) {
+  const finding = await db.researchFinding.findFirst({
+    where: { id: input.findingId, propertyId: context.propertyId },
+    select: {
+      id: true,
+      observedName: true,
+      sourceUrl: true,
+      sourceHandle: true,
+      sourceType: true,
+      observedText: true,
+      extractedDataJson: true,
+      proposedOrganizationId: true,
+    },
+  });
+
+  if (!finding) {
+    throw new Error("Research finding not found");
+  }
+
+  if (finding.proposedOrganizationId) {
+    return db.researchFinding.update({
+      where: { id: input.findingId },
+      data: { status: "promoted" },
+      include: { proposedOrganization: true },
+    });
+  }
+
+  const extracted = (finding.extractedDataJson ?? {}) as Record<string, unknown>;
+  const name = finding.observedName?.trim() || String(extracted.name ?? extracted.organizationName ?? "").trim();
+  if (!name) {
+    throw new Error("This finding needs an observed name before it can be promoted");
+  }
+
+  const organization = await db.partnerOrganization.create({
+    data: {
+      propertyId: context.propertyId,
+      name,
+      type: "agency",
+      website: finding.sourceUrl || String(extracted.website ?? "").trim() || null,
+      email: String(extracted.email ?? "").trim() || null,
+      phone: String(extracted.phone ?? "").trim() || null,
+      whatsapp: String(extracted.whatsapp ?? extracted.whatsApp ?? "").trim() || null,
+      country: String(extracted.country ?? "").trim() || null,
+      city: String(extracted.city ?? "").trim() || null,
+      source: finding.sourceHandle || finding.sourceType,
+      marketNotes: finding.observedText || null,
+      ownerUserId: context.userId,
+      ownerUserName: context.userName,
+      status: "not_contacted",
+      visitStatus: "never_invited",
+    },
+  });
+
+  await db.researchFinding.update({
+    where: { id: input.findingId },
+    data: {
+      status: "promoted",
+      proposedOrganizationId: organization.id,
+    },
+  });
+
+  return organization;
+}
+
 export async function listDueFollowUps(propertyId: string, filters: FollowUpFilters = {}) {
   const now = new Date();
   const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);

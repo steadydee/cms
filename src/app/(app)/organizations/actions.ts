@@ -60,7 +60,7 @@ export async function createOrganizationAction(formData: FormData) {
     throw new Error(access.message);
   }
 
-  await createOrganization(access.context, {
+  const organization = await createOrganization(access.context, {
     name: String(formData.get("name") ?? ""),
     type: parsePartnerType(formData.get("type") as string | null),
     country: String(formData.get("country") ?? ""),
@@ -76,6 +76,10 @@ export async function createOrganizationAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
+
+  if (formData.get("redirectToCreated") === "on") {
+    redirect(`/organizations/${organization.id}`);
+  }
 }
 
 export async function addContactAction(formData: FormData) {
@@ -150,6 +154,7 @@ export async function logIntroEmailSentAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
   revalidatePath(`/organizations/${organizationId}`);
 }
 
@@ -192,6 +197,7 @@ export async function sendIntroEmailAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
   revalidatePath(`/organizations/${organizationId}`);
 }
 
@@ -213,6 +219,7 @@ export async function createFollowUpTaskAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
   revalidatePath(`/organizations/${organizationId}`);
 }
 
@@ -276,6 +283,7 @@ export async function archiveOrganizationAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
   revalidatePath(`/organizations/${organizationId}`);
   redirect("/organizations");
 }
@@ -292,6 +300,7 @@ export async function unarchiveOrganizationAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
   revalidatePath(`/organizations/${organizationId}`);
   redirect(`/organizations/${organizationId}`);
 }
@@ -332,4 +341,5 @@ export async function bulkOrganizationAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/organizations");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
 }

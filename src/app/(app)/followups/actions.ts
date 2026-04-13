@@ -14,6 +14,7 @@ export async function completeFollowUpTaskAction(formData: FormData) {
   await completeFollowUpTask(access.context, taskId);
   revalidatePath("/dashboard");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
 }
 
 export async function reopenFollowUpTaskAction(formData: FormData) {
@@ -26,6 +27,7 @@ export async function reopenFollowUpTaskAction(formData: FormData) {
   await reopenFollowUpTask(access.context, taskId);
   revalidatePath("/dashboard");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
 }
 
 export async function assignFollowUpToMeAction(formData: FormData) {
@@ -43,4 +45,5 @@ export async function assignFollowUpToMeAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/followups");
+  revalidatePath("/tasks");
 }

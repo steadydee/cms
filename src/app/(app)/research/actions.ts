@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { ResearchSourceType } from "@prisma/client";
 import { authorizePartnersAccess } from "@/lib/auth";
-import { createResearchFinding } from "@/lib/services/partners";
+import {
+  createResearchFinding,
+  promoteResearchFindingToOrganization,
+  updateResearchFindingStatus,
+} from "@/lib/services/partners";
 
 function parseSourceType(value: string | null): ResearchSourceType {
   if (
@@ -50,4 +54,52 @@ export async function createResearchFindingAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/research");
+}
+
+export async function markResearchFindingReviewedAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const findingId = String(formData.get("findingId") ?? "");
+  await updateResearchFindingStatus(access.context, {
+    findingId,
+    status: "reviewed",
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/research");
+}
+
+export async function discardResearchFindingAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const findingId = String(formData.get("findingId") ?? "");
+  await updateResearchFindingStatus(access.context, {
+    findingId,
+    status: "discarded",
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/research");
+}
+
+export async function promoteResearchFindingAction(formData: FormData) {
+  const access = await authorizePartnersAccess("write");
+  if (!access.ok) {
+    throw new Error(access.message);
+  }
+
+  const findingId = String(formData.get("findingId") ?? "");
+  await promoteResearchFindingToOrganization(access.context, {
+    findingId,
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/research");
+  revalidatePath("/organizations");
 }

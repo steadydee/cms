@@ -24,7 +24,7 @@ const navigation: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Accounts", href: "/organizations", icon: Building2 },
   { label: "Research", href: "/research", icon: Search },
-  { label: "Follow-ups", href: "/followups", icon: ListTodo },
+  { label: "Tasks", href: "/tasks", icon: ListTodo },
 ];
 
 const HUB_URL =
