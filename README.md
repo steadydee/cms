@@ -43,6 +43,7 @@ Build a lightweight CRM for outreach campaigns so Owl's Watch can track:
 ## Design Docs
 
 - [Partners CRM Design](./docs/partners-crm-design.md)
+- [Partners UX Redesign](./docs/partners-ux-redesign.md)
 
 ## Current MVP In This Repo
 
