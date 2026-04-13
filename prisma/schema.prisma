@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PartnerType {
+  agency
+  operator
+  travel_advisor
+  media
+  other
+}
+
+enum RelationshipStatus {
+  not_contacted
+  contacted
+  awaiting_reply
+  engaged
+  visit_scheduled
+  visited
+  proposal_sent
+  active_partner
+  inactive
+  not_interested
+}
+
+enum VisitStatus {
+  never_invited
+  invited
+  scheduled
+  visited
+}
+
+enum OutreachChannel {
+  email
+  whatsapp
+  phone
+  meeting
+  other
+}
+
+enum TouchDirection {
+  outbound
+  inbound
+}
+
+enum TaskStatus {
+  open
+  done
+  cancelled
+}
+
+model PartnerOrganization {
+  id              String             @id @default(cuid())
+  propertyId      String
+  name            String
+  type            PartnerType        @default(agency)
+  country         String?
+  city            String?
+  website         String?
+  whatsapp        String?
+  phone           String?
+  email           String?
+  source          String?
+  marketNotes     String?
+  ownerUserId     String?
+  ownerUserName   String?
+  priority        Int                @default(0)
+  status          RelationshipStatus @default(not_contacted)
+  visitStatus     VisitStatus        @default(never_invited)
+  lastVisitedAt   DateTime?
+  visitNotes      String?
+  lastContactedAt DateTime?
+  nextActionAt    DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  contacts        PartnerContact[]
+  touches         OutreachTouch[]
+  tasks           FollowUpTask[]
+
+  @@index([propertyId, status])
+  @@index([propertyId, visitStatus])
+  @@index([propertyId, nextActionAt])
+}
+
+model PartnerContact {
+  id              String              @id @default(cuid())
+  organizationId  String
+  fullName        String
+  roleTitle       String?
+  email           String?
+  phone           String?
+  whatsapp        String?
+  preferredChannel OutreachChannel?
+  isPrimary       Boolean             @default(false)
+  notes           String?
+  lastContactedAt DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  organization    PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  touches         OutreachTouch[]
+  tasks           FollowUpTask[]
+
+  @@index([organizationId])
+}
+
+model OutreachTouch {
+  id                String              @id @default(cuid())
+  organizationId    String
+  contactId         String?
+  channel           OutreachChannel
+  direction         TouchDirection      @default(outbound)
+  happenedAt        DateTime
+  subject           String?
+  summary           String
+  outcome           String?
+  nextStep          String?
+  createdByUserId   String
+  createdByUserName String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  organization      PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact           PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, happenedAt])
+  @@index([contactId])
+}
+
+model FollowUpTask {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  contactId          String?
+  title              String
+  description        String?
+  dueAt              DateTime
+  status             TaskStatus          @default(open)
+  assignedToUserId   String?
+  assignedToUserName String?
+  createdByUserId    String
+  createdByUserName  String
+  completedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact            PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, dueAt])
+  @@index([status, dueAt])
+}
