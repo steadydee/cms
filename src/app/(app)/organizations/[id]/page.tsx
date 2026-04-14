@@ -59,6 +59,11 @@ export default async function OrganizationDetailPage({
   const latestTouch = organization.touches[0];
   const openTasks = organization.tasks.filter((task) => task.status === "open");
   const overdueTasks = openTasks.filter((task) => task.isOverdue);
+  const organizationHref = `/organizations/${organization.id}`;
+  const peopleHref = `${organizationHref}?tab=people`;
+  const timelineHref = `${organizationHref}?tab=timeline`;
+  const tasksHref = `${organizationHref}?tab=tasks`;
+  const profileHref = `${organizationHref}?tab=profile`;
   return (
     <div className="space-y-8">
       <section className="rounded-[30px] border border-[#ddd6cc] bg-white p-6 shadow-[0_10px_35px_rgba(30,41,59,0.06)]">
@@ -84,6 +89,7 @@ export default async function OrganizationDetailPage({
             {organization.archivedAt ? (
               <form action={unarchiveOrganizationAction}>
                 <input type="hidden" name="organizationId" value={organization.id} />
+                <input type="hidden" name="returnTo" value={organizationHref} />
                 <button type="submit" className="rounded-xl border border-[#c2410c] px-4 py-2.5 text-[14px] font-medium text-[#c2410c]">
                   Unarchive
                 </button>
@@ -91,6 +97,7 @@ export default async function OrganizationDetailPage({
             ) : (
               <form action={archiveOrganizationAction}>
                 <input type="hidden" name="organizationId" value={organization.id} />
+                <input type="hidden" name="returnTo" value="/organizations" />
                 <button type="submit" className="rounded-xl border border-[#c2410c] px-4 py-2.5 text-[14px] font-medium text-[#c2410c]">
                   Archive
                 </button>
@@ -187,6 +194,7 @@ export default async function OrganizationDetailPage({
                 defaultSubject={introEmail.subject}
                 defaultBody={introEmail.body}
                 resendConfigured={emailDelivery.resendConfigured}
+                returnTo={organizationHref}
               />
             </Panel>
 
@@ -226,6 +234,7 @@ export default async function OrganizationDetailPage({
 
               <form action={createFollowUpTaskAction} className="mt-6 grid gap-3">
                 <input type="hidden" name="organizationId" value={organization.id} />
+                <input type="hidden" name="returnTo" value={tasksHref} />
                 <input name="title" placeholder="Task title" required className={inputClassName} />
                 <textarea
                   name="description"
@@ -294,6 +303,7 @@ export default async function OrganizationDetailPage({
           <Panel eyebrow="Add contact" title="Capture a real person, not just an account" description="This should stay lightweight so you actually keep the contact list current.">
             <form action={addContactAction} className="grid gap-3">
               <input type="hidden" name="organizationId" value={organization.id} />
+              <input type="hidden" name="returnTo" value={peopleHref} />
               <input name="fullName" placeholder="Full name" required className={inputClassName} />
               <input name="roleTitle" placeholder="Role title" className={inputClassName} />
               <input name="email" placeholder="Email" type="email" className={inputClassName} />
@@ -331,6 +341,7 @@ export default async function OrganizationDetailPage({
 
             <form action={logOutreachTouchAction} className="grid gap-3 rounded-2xl border border-[#ece7df] bg-[#faf8f4] p-4">
               <input type="hidden" name="organizationId" value={organization.id} />
+              <input type="hidden" name="returnTo" value={timelineHref} />
               <select name="channel" defaultValue="email" className={inputClassName}>
                 <option value="email">Email</option>
                 <option value="whatsapp">WhatsApp</option>
@@ -377,6 +388,7 @@ export default async function OrganizationDetailPage({
           <Panel eyebrow="Add task" title="Create the next action intentionally" description="If there is no task or due date, the account can disappear from the queue.">
             <form action={createFollowUpTaskAction} className="grid gap-3">
               <input type="hidden" name="organizationId" value={organization.id} />
+              <input type="hidden" name="returnTo" value={tasksHref} />
               <input name="title" placeholder="Task title" required className={inputClassName} />
               <textarea
                 name="description"
@@ -398,6 +410,7 @@ export default async function OrganizationDetailPage({
           <Panel eyebrow="Profile" title="Edit organization details" description="Keep the administrative fields here so the default view stays operational.">
             <form action={updateOrganizationProfileAction} className="space-y-4">
               <input type="hidden" name="organizationId" value={organization.id} />
+              <input type="hidden" name="returnTo" value={profileHref} />
               <input name="ownerUserName" defaultValue={organization.ownerUserName || ""} placeholder="Owner name" className={inputClassName} />
               <input name="email" type="email" defaultValue={organization.email || ""} placeholder="General email" className={inputClassName} />
               <input name="whatsapp" defaultValue={organization.whatsapp || ""} placeholder="WhatsApp" className={inputClassName} />
@@ -425,6 +438,7 @@ export default async function OrganizationDetailPage({
           <Panel eyebrow="Stage" title="Update relationship stage" description="Change stage and visit state deliberately so the queues stay trustworthy.">
             <form action={updateOrganizationStatusAction} className="space-y-4">
               <input type="hidden" name="organizationId" value={organization.id} />
+              <input type="hidden" name="returnTo" value={profileHref} />
               <select name="status" defaultValue={organization.status} className={inputClassName}>
                 {relationshipStatuses.map((status) => (
                   <option key={status} value={status}>{labelize(status)}</option>

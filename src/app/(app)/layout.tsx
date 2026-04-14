@@ -2,13 +2,18 @@ import Link from "next/link";
 import { getPartnersRequestContext } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { AccessDenied } from "@/components/layout/access-denied";
+import { FlashBanner } from "@/components/layout/flash-banner";
+import { getFlashMessage } from "@/lib/flash";
 
 export default async function AppLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const context = await getPartnersRequestContext();
+  const [context, flashMessage] = await Promise.all([
+    getPartnersRequestContext(),
+    getFlashMessage(),
+  ]);
   if (!context) {
     return <AccessDenied message="Launch Partners from Owl's Watch Hub to start an employee session." />;
   }
@@ -39,6 +44,7 @@ export default async function AppLayout({
             </div>
           </div>
         </header>
+        {flashMessage ? <FlashBanner message={flashMessage} /> : null}
         <main className="flex-1 overflow-y-auto px-6 py-8">{children}</main>
       </div>
     </div>

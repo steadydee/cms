@@ -11,6 +11,7 @@ type FirstOutreachComposerProps = {
   defaultSubject: string;
   defaultBody: string;
   resendConfigured: boolean;
+  returnTo: string;
 };
 
 export function FirstOutreachComposer({
@@ -21,6 +22,7 @@ export function FirstOutreachComposer({
   defaultSubject,
   defaultBody,
   resendConfigured,
+  returnTo,
 }: FirstOutreachComposerProps) {
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
@@ -42,6 +44,7 @@ export function FirstOutreachComposer({
       <input type="hidden" name="contactId" value={contactId || ""} />
       <input type="hidden" name="recipientEmail" value={recipientEmail} />
       <input type="hidden" name="recipientLabel" value={recipientLabel} />
+      <input type="hidden" name="returnTo" value={returnTo} />
 
       <div>
         <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template subject</label>

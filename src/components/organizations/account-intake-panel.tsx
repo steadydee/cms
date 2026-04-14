@@ -68,6 +68,7 @@ export function AccountIntakePanel() {
 
             <form action={createOrganizationAction} className="space-y-6 px-6 py-6">
               <input type="hidden" name="redirectToCreated" value="on" />
+              <input type="hidden" name="returnTo" value="/organizations" />
               <section className="grid gap-4 md:grid-cols-2">
                 <input name="name" placeholder="Account name" required className={`${inputClassName} md:col-span-2`} />
                 <select name="type" className={inputClassName} defaultValue="agency">

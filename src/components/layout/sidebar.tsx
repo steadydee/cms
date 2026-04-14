@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -73,8 +73,30 @@ function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    return localStorage.getItem("ow_partners_sidebar") === "collapsed";
+    const saved = localStorage.getItem("ow_partners_sidebar");
+    if (saved === "collapsed") return true;
+    if (saved === "expanded") return false;
+    return window.innerWidth < 900;
   });
+
+  useEffect(() => {
+    function handleResize() {
+      const saved = localStorage.getItem("ow_partners_sidebar");
+      if (window.innerWidth < 900) {
+        setCollapsed(true);
+        return;
+      }
+      if (saved === "collapsed") {
+        setCollapsed(true);
+      } else if (saved === "expanded") {
+        setCollapsed(false);
+      }
+    }
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   function toggle() {
     const next = !collapsed;

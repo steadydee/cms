@@ -65,6 +65,7 @@ export default async function OrganizationsPage({
   ]);
 
   const organizations = organizationPage.items;
+  const currentHref = buildOrganizationsHref(filters, { page: String(page), pageSize: String(pageSize) });
 
   return (
     <div className="space-y-8">
@@ -107,7 +108,11 @@ export default async function OrganizationsPage({
 
         <div className="mt-6 flex flex-wrap gap-2">
           {savedViews.map((view) => {
-            const href = view === "all" ? "/organizations" : `/organizations?view=${view}`;
+            const href = buildOrganizationsHref(filters, {
+              view: view === "all" ? "" : view,
+              page: "1",
+              pageSize: String(pageSize),
+            });
             const isActive = activeView === view;
 
             return (
@@ -194,6 +199,7 @@ export default async function OrganizationsPage({
             Bulk actions
           </summary>
           <form action={bulkOrganizationAction} className="mt-4 space-y-4">
+            <input type="hidden" name="returnTo" value={currentHref} />
             <div className="grid gap-3 md:grid-cols-[1.3fr_1.4fr_1fr_1fr_auto]">
               <select name="bulkAction" defaultValue="" className={inputClassName}>
                 <option value="">Choose action</option>
@@ -244,6 +250,7 @@ export default async function OrganizationsPage({
         ) : null}
 
         <form action={bulkOrganizationAction} className="mt-5 space-y-4">
+          <input type="hidden" name="returnTo" value={currentHref} />
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">Visible accounts</p>

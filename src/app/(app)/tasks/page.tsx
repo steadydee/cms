@@ -112,12 +112,14 @@ export default async function TasksPage({
                     <div className="flex flex-wrap gap-2">
                       <form action={assignFollowUpToMeAction}>
                         <input type="hidden" name="taskId" value={task.id} />
+                        <input type="hidden" name="returnTo" value={activeBucket === "all" ? "/tasks" : `/tasks?bucket=${activeBucket}`} />
                         <button type="submit" className="rounded-lg border border-[#1e293b] px-3 py-2 text-[13px] font-medium text-[#1e293b]">
                           Assign to me
                         </button>
                       </form>
                       <form action={completeFollowUpTaskAction}>
                         <input type="hidden" name="taskId" value={task.id} />
+                        <input type="hidden" name="returnTo" value={activeBucket === "all" ? "/tasks" : `/tasks?bucket=${activeBucket}`} />
                         <button type="submit" className="rounded-lg border border-[#0f766e] px-3 py-2 text-[13px] font-medium text-[#0f766e]">
                           Mark done
                         </button>
