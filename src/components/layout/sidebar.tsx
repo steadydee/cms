@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, LayoutGrid, List, PanelLeftClose } from "lucide-react";
+import { LayoutGrid, List, PanelLeftClose } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { label: "Contacts", href: "/contacts", icon: List },
-  { label: "Ops", href: "/ops", icon: BarChart3 },
 ];
 
 export function Sidebar() {

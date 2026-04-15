@@ -85,7 +85,6 @@ function getReturnTo(formData: FormData, fallback: string) {
 function revalidateContactsSurface(organizationId?: string) {
   revalidatePath("/dashboard");
   revalidatePath("/contacts");
-  revalidatePath("/ops");
   revalidatePath("/organizations");
   if (organizationId) {
     revalidatePath(`/contacts/${organizationId}`);

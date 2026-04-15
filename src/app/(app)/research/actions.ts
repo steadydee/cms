@@ -56,7 +56,7 @@ async function setErrorAndRedirect(error: unknown, returnTo: string) {
 }
 
 export async function createResearchFindingAction(formData: FormData) {
-  const returnTo = getReturnTo(formData, "/ops");
+  const returnTo = getReturnTo(formData, "/dashboard");
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -77,7 +77,6 @@ export async function createResearchFindingAction(formData: FormData) {
     });
 
     revalidatePath("/dashboard");
-    revalidatePath("/ops");
     revalidatePath("/research");
   } catch (error) {
     await setErrorAndRedirect(error, returnTo);
@@ -87,7 +86,7 @@ export async function createResearchFindingAction(formData: FormData) {
 }
 
 export async function markResearchFindingReviewedAction(formData: FormData) {
-  const returnTo = getReturnTo(formData, "/ops");
+  const returnTo = getReturnTo(formData, "/dashboard");
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -102,7 +101,6 @@ export async function markResearchFindingReviewedAction(formData: FormData) {
     });
 
     revalidatePath("/dashboard");
-    revalidatePath("/ops");
     revalidatePath("/research");
   } catch (error) {
     await setErrorAndRedirect(error, returnTo);
@@ -112,7 +110,7 @@ export async function markResearchFindingReviewedAction(formData: FormData) {
 }
 
 export async function discardResearchFindingAction(formData: FormData) {
-  const returnTo = getReturnTo(formData, "/ops");
+  const returnTo = getReturnTo(formData, "/dashboard");
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -127,7 +125,6 @@ export async function discardResearchFindingAction(formData: FormData) {
     });
 
     revalidatePath("/dashboard");
-    revalidatePath("/ops");
     revalidatePath("/research");
   } catch (error) {
     await setErrorAndRedirect(error, returnTo);
@@ -137,7 +134,7 @@ export async function discardResearchFindingAction(formData: FormData) {
 }
 
 export async function promoteResearchFindingAction(formData: FormData) {
-  const returnTo = getReturnTo(formData, "/ops");
+  const returnTo = getReturnTo(formData, "/dashboard");
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -152,7 +149,6 @@ export async function promoteResearchFindingAction(formData: FormData) {
 
     revalidatePath("/dashboard");
     revalidatePath("/contacts");
-    revalidatePath("/ops");
     revalidatePath("/research");
     revalidatePath("/organizations");
   } catch (error) {
