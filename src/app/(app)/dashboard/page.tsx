@@ -16,9 +16,6 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Dashboard</p>
-            <h1 className="mt-2 font-serif text-[30px] font-semibold tracking-tight text-[#2c2416]">
-              Good morning, {context.userName}
-            </h1>
             <p className="mt-3 text-[14px] text-[#8c7e6a]">
               {dashboard.totalContacts} contacts · {dashboard.overdueCount} overdue · {dashboard.dueThisWeekCount} due this week
             </p>
@@ -28,10 +25,10 @@ export default async function DashboardPage() {
 
         <div className="mt-6 flex flex-wrap gap-2 text-[12px]">
           <Link href="/contacts" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
-            Open contacts
+            Contacts
           </Link>
           <Link href="/ops" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
-            Open ops
+            Ops
           </Link>
         </div>
       </section>

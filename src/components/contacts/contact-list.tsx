@@ -42,8 +42,8 @@ export function ContactList({
       <div className={`border-b border-[#f0ebe3] ${compact ? "px-4 py-4" : "px-6 py-5"}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Contacts</p>
-            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[#2c2416]">Relationships</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Directory</p>
+            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[#2c2416]">Contacts</h1>
             <p className="mt-2 text-[13px] text-[#8c7e6a]">{items.length} matching contacts</p>
           </div>
           <QuickAddContact compact returnTo="/contacts" />

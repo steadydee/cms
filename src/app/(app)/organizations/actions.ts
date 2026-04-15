@@ -300,7 +300,7 @@ export async function updateOrganizationStatusAction(formData: FormData) {
     await setErrorAndRedirect(error, returnTo);
   }
 
-  await setSuccessAndRedirect("Relationship stage updated.", returnTo);
+  await setSuccessAndRedirect("Contact stage updated.", returnTo);
 }
 
 export async function updateOrganizationProfileAction(formData: FormData) {

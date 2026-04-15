@@ -53,6 +53,7 @@ const relationshipStatuses: RelationshipStatus[] = [
 
 type ContactDetailProps = {
   contact: ContactDetailData;
+  backHref?: string;
 };
 
 type SaveState = {
@@ -135,7 +136,7 @@ function StreamBadge({ type }: { type: ContactDetailData["activityStream"][numbe
   return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${style.className}`}>{style.label}</span>;
 }
 
-export function ContactDetail({ contact }: ContactDetailProps) {
+export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetailProps) {
   const router = useRouter();
   const defaultTemplate = contact.emailTemplates[0] ?? null;
   const defaultMergedTemplate = defaultTemplate
@@ -193,7 +194,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
       <section className="rounded-[20px] border border-[#e8e0d4] bg-white px-6 py-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <Link href="/contacts" className="text-[12px] font-medium text-[#8c7e6a]">
+            <Link href={backHref} className="text-[12px] font-medium text-[#8c7e6a]">
               ← Back
             </Link>
             <h1 className="mt-2 font-serif text-[30px] font-semibold tracking-tight text-[#2c2416]">{contact.name}</h1>
@@ -607,7 +608,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
           </CardSection>
 
           <CardSection title="Stage">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Relationship status</label>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Contact status</label>
             <select
               value={statusValue}
               onChange={(event) => {

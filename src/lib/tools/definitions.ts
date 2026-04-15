@@ -237,7 +237,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "update_partner_status",
-    description: "Update relationship status and visit status for a partner account.",
+    description: "Update contact status and visit status for a partner account.",
     classification: "guarded_write",
     accessLevel: "write",
     requiredPermissions: ["partners.organizations.write"],

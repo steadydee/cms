@@ -82,7 +82,7 @@ export default async function OpsPage() {
             <h2 className="mt-2 font-serif text-[24px] font-semibold text-[#2c2416]">Inbox</h2>
           </div>
           <Link href="/contacts" className="text-[12px] font-medium text-[#3d6b4f]">
-            Open contacts
+            Contacts
           </Link>
         </div>
 

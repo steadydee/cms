@@ -26,9 +26,9 @@ export default async function AppLayout({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Partners CRM</p>
-              <p className="mt-2 font-serif text-[24px] font-semibold tracking-tight text-foreground">Notes-first relationship desk</p>
+              <p className="mt-2 font-serif text-[24px] font-semibold tracking-tight text-foreground">Partner contacts and ops</p>
               <p className="mt-1 text-[14px] text-muted-foreground">
-                Dashboard, contacts, and ops for partner outreach.
+                Manage outreach, notes, and follow-up in one place.
               </p>
               <div className="mt-4 flex flex-wrap gap-2 md:hidden">
                 <Link href="/dashboard" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">

@@ -109,7 +109,7 @@ function toRelationshipStatus(value: unknown): RelationshipStatus | undefined {
     return value;
   }
   if (value === undefined || value === null || value === "" || value === "all") return undefined;
-  throw new ToolError("VALIDATION_FAILED", "Invalid relationship status.", { status: 400 });
+  throw new ToolError("VALIDATION_FAILED", "Invalid contact status.", { status: 400 });
 }
 
 function toVisitStatus(value: unknown): VisitStatus | "all" | undefined {
