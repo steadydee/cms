@@ -875,31 +875,66 @@ function EditableField({
   const [value, setValue] = useState(initialValue);
 
   return (
-    <div className="flex items-center gap-3 border-b border-[#f0ebe3] py-2 last:border-b-0">
-      <Icon className="h-4 w-4 text-[#8c7e6a]" />
-      <span className="w-16 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
-      {editing ? (
-        <input
-          autoFocus
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onBlur={() => {
-            setEditing(false);
-            void onSave(value);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              setEditing(false);
-              void onSave(value);
-            }
-          }}
-          className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-[#2c2416] outline-none"
-        />
-      ) : (
-        <button type="button" className="min-w-0 flex-1 text-left text-[13px] text-[#2c2416]" onClick={() => setEditing(true)}>
-          {value || <span className="text-[#aa9c87]">{placeholder}</span>}
-        </button>
-      )}
+    <div className="border-b border-[#f0ebe3] py-2 last:border-b-0">
+      <div className="flex items-center gap-3">
+        <Icon className="h-4 w-4 text-[#8c7e6a]" />
+        <span className="w-16 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+        {editing ? (
+          <input
+            autoFocus
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                setEditing(false);
+                void onSave(value);
+              }
+
+              if (event.key === "Escape") {
+                setValue(initialValue);
+                setEditing(false);
+              }
+            }}
+            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-[#2c2416] outline-none"
+          />
+        ) : (
+          <div className="min-w-0 flex-1 text-[13px] text-[#2c2416]">
+            {value || <span className="text-[#aa9c87]">{placeholder}</span>}
+          </div>
+        )}
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-[#2c2416] px-2 py-1 text-[11px] font-medium text-white"
+              onClick={() => {
+                setEditing(false);
+                void onSave(value);
+              }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-[#e8e0d4] px-2 py-1 text-[11px] font-medium text-[#6d614d]"
+              onClick={() => {
+                setValue(initialValue);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="rounded-md border border-[#e8e0d4] px-2 py-1 text-[11px] font-medium text-[#6d614d]"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </button>
+        )}
+      </div>
     </div>
   );
 }
