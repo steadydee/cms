@@ -99,12 +99,54 @@ model PartnerOrganization {
   contacts        PartnerContact[]
   touches         OutreachTouch[]
   tasks           FollowUpTask[]
+  notes           Note[]
+  tags            TagOnContact[]
   researchFindings ResearchFinding[]
 
   @@index([propertyId, status])
   @@index([propertyId, visitStatus])
   @@index([propertyId, nextActionAt])
   @@index([propertyId, archivedAt])
+}
+
+model Note {
+  id             String              @id @default(cuid())
+  organizationId String
+  text           String
+  author         String              @default("Dennis")
+  createdAt      DateTime            @default(now())
+  organization   PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model Tag {
+  id       String         @id @default(cuid())
+  name     String         @unique
+  contacts TagOnContact[]
+}
+
+model TagOnContact {
+  organizationId String
+  tagId          String
+  organization   PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tag            Tag                 @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, tagId])
+  @@index([tagId])
+}
+
+model EmailTemplate {
+  id         String   @id @default(cuid())
+  propertyId String
+  name       String
+  subject    String
+  body       String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([propertyId, sortOrder])
 }
 
 model ResearchFinding {

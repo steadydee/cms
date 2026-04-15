@@ -4,12 +4,14 @@ import {
   ResearchFindingStatus,
   ResearchSourceType,
   RelationshipStatus,
+  TaskStatus,
   type PartnerType,
   type VisitStatus,
 } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { PartnersRequestContext } from "@/lib/auth";
 import { sendEmailWithResend } from "@/lib/email";
+import { getContactStage, type ContactStage } from "@/lib/partners-ui";
 
 export type SavedOrganizationView =
   | "all"
@@ -48,6 +50,56 @@ export type ResearchFindingFilters = {
   sourceType?: ResearchSourceType | "all";
   query?: string;
 };
+
+export type ContactFilters = {
+  query?: string;
+  stage?: ContactStage | "all";
+};
+
+export type ActivityStreamItem = {
+  id: string;
+  type: "note" | "research" | "email" | "call" | "whatsapp" | "visit" | "meeting" | "other" | "task_done";
+  text: string;
+  author: string;
+  happenedAt: Date;
+};
+
+type EditableOrganizationField =
+  | "email"
+  | "phone"
+  | "whatsapp"
+  | "website"
+  | "country"
+  | "city"
+  | "marketNotes"
+  | "source";
+
+type OpsStageSnapshot = {
+  stage: ContactStage;
+  label: string;
+  count: number;
+};
+
+const DEFAULT_EMAIL_TEMPLATES = [
+  {
+    name: "Intro — birding operator",
+    subject: "Introducing Owl's Watch for your travelers",
+    body: "Hello {company},\n\nI'm reaching out from Owl's Watch Nature Retreat, located directly adjacent to the Río Blanco Reserve near Manizales, Colombia.\n\nWe offer birding-focused accommodation with direct trail access to one of Colombia's richest birding sites. I'd love to explore whether we could be a fit for your travelers.\n\nWould you be open to a quick call or visit?\n\nBest,\nDennis Bailey\nOwl's Watch Nature Retreat",
+    sortOrder: 0,
+  },
+  {
+    name: "Follow-up — no reply",
+    subject: "Following up — Owl's Watch partnership",
+    body: "Hello {company},\n\nJust following up on my earlier message about a potential partnership with Owl's Watch. We're adjacent to Río Blanco Reserve and offer direct trail access for birding groups.\n\nHappy to share our rate sheet or schedule a call whenever convenient.\n\nBest,\nDennis",
+    sortOrder: 1,
+  },
+  {
+    name: "Invite — property visit",
+    subject: "Invitation to visit Owl's Watch",
+    body: "Hello {name},\n\nI'd like to invite you for a complimentary visit to Owl's Watch Nature Retreat. Seeing the property and trails firsthand is the best way to understand what we can offer your groups.\n\nWe'd provide accommodation and a guided birding session with Juan Carlos.\n\nWould any dates in the coming weeks work?\n\nBest,\nDennis",
+    sortOrder: 2,
+  },
+];
 
 export const ORGANIZATION_VIEW_LABELS: Record<SavedOrganizationView, string> = {
   all: "All organizations",
@@ -89,6 +141,62 @@ function normalizeExtractedDataJson(value: unknown): Prisma.InputJsonValue | und
   if (value === undefined) return undefined;
   if (value === null) return undefined;
   return value as Prisma.InputJsonValue;
+}
+
+function getActivityTypeFromChannel(channel: OutreachChannel): ActivityStreamItem["type"] {
+  switch (channel) {
+    case "email":
+      return "email";
+    case "phone":
+      return "call";
+    case "whatsapp":
+      return "whatsapp";
+    case "meeting":
+      return "meeting";
+    case "other":
+    default:
+      return "other";
+  }
+}
+
+async function ensureDefaultEmailTemplates(propertyId: string) {
+  const existingCount = await db.emailTemplate.count({ where: { propertyId } });
+  if (existingCount > 0) return;
+
+  await db.emailTemplate.createMany({
+    data: DEFAULT_EMAIL_TEMPLATES.map((template) => ({
+      propertyId,
+      ...template,
+    })),
+    skipDuplicates: true,
+  });
+}
+
+async function syncOrganizationNextActionAt(
+  tx: Prisma.TransactionClient,
+  organizationId: string
+) {
+  const nextOpenTask = await tx.followUpTask.findFirst({
+    where: {
+      organizationId,
+      status: "open",
+    },
+    orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+    select: {
+      dueAt: true,
+    },
+  });
+
+  await tx.partnerOrganization.update({
+    where: { id: organizationId },
+    data: {
+      nextActionAt: nextOpenTask?.dueAt ?? null,
+    },
+  });
+}
+
+function createActivityStreamItemId(prefix: string, id: string) {
+  return `${prefix}:${id}`;
 }
 
 function buildOrganizationWhere(propertyId: string, filters: OrganizationFilters): Prisma.PartnerOrganizationWhereInput {
@@ -254,6 +362,479 @@ export async function getDashboardSummary(propertyId: string) {
     overdueOrganizations,
     unassignedOrganizations,
     recentlyTouched,
+  };
+}
+
+export async function listEmailTemplates(propertyId: string) {
+  await ensureDefaultEmailTemplates(propertyId);
+
+  return db.emailTemplate.findMany({
+    where: { propertyId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+export function renderEmailTemplate(
+  template: { subject: string; body: string },
+  values: { company?: string | null; name?: string | null }
+) {
+  const company = values.company?.trim() || "there";
+  const name = values.name?.trim() || company;
+
+  return {
+    subject: template.subject
+      .replaceAll("{company}", company)
+      .replaceAll("{name}", name),
+    body: template.body
+      .replaceAll("{company}", company)
+      .replaceAll("{name}", name),
+  };
+}
+
+export async function getActivityStream(organizationId: string, propertyId: string): Promise<ActivityStreamItem[]> {
+  const organization = await getScopedOrganization(propertyId, organizationId);
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  const [notes, touches, tasks] = await Promise.all([
+    db.note.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.outreachTouch.findMany({
+      where: { organizationId },
+      orderBy: { happenedAt: "desc" },
+    }),
+    db.followUpTask.findMany({
+      where: { organizationId, status: "done" },
+      orderBy: { completedAt: "desc" },
+    }),
+  ]);
+
+  const stream: ActivityStreamItem[] = [
+    ...notes.map((note): ActivityStreamItem => ({
+      id: createActivityStreamItemId("note", note.id),
+      type: note.author === "AI Agent" ? "research" : "note",
+      text: note.text,
+      author: note.author,
+      happenedAt: note.createdAt,
+    })),
+    ...touches.map((touch): ActivityStreamItem => ({
+      id: createActivityStreamItemId("touch", touch.id),
+      type: getActivityTypeFromChannel(touch.channel),
+      text: touch.summary,
+      author: touch.createdByUserName,
+      happenedAt: touch.happenedAt,
+    })),
+    ...tasks
+      .filter((task) => task.completedAt)
+      .map((task): ActivityStreamItem => ({
+        id: createActivityStreamItemId("task", task.id),
+        type: "task_done",
+        text: `Completed: ${task.title}`,
+        author: task.assignedToUserName || task.createdByUserName || "System",
+        happenedAt: task.completedAt as Date,
+      })),
+  ];
+
+  return stream.sort((left, right) => right.happenedAt.getTime() - left.happenedAt.getTime());
+}
+
+export async function listContactsIndex(propertyId: string, filters: ContactFilters = {}) {
+  const now = Date.now();
+  const organizations = await db.partnerOrganization.findMany({
+    where: {
+      propertyId,
+      archivedAt: null,
+    },
+    include: {
+      contacts: {
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          fullName: true,
+          roleTitle: true,
+          email: true,
+          phone: true,
+          whatsapp: true,
+          isPrimary: true,
+        },
+      },
+      tags: {
+        include: {
+          tag: true,
+        },
+      },
+      tasks: {
+        where: { status: "open" },
+        orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: {
+          id: true,
+          title: true,
+          dueAt: true,
+        },
+      },
+    },
+    orderBy: [{ updatedAt: "desc" }],
+  });
+
+  const query = filters.query?.trim().toLowerCase() || "";
+  const items = organizations
+    .map((organization) => {
+      const primaryPerson = organization.contacts.find((contact) => contact.isPrimary) ?? organization.contacts[0] ?? null;
+      const displayStage = getContactStage(organization);
+
+      return {
+        ...organization,
+        displayStage,
+        primaryPerson,
+        tagNames: organization.tags.map((entry) => entry.tag.name),
+        nextActionTask: organization.tasks[0] ?? null,
+        nextActionIsOverdue: Boolean(organization.tasks[0] && organization.tasks[0].dueAt.getTime() < now),
+      };
+    })
+    .filter((organization) => {
+      if (filters.stage && filters.stage !== "all" && organization.displayStage !== filters.stage) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      const searchable = [
+        organization.name,
+        organization.city,
+        organization.country,
+        organization.source,
+        organization.email,
+        organization.phone,
+        organization.whatsapp,
+        ...organization.tagNames,
+        ...organization.contacts.map((contact) => contact.fullName),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(query);
+    });
+
+  return items;
+}
+
+export async function getDashboardOverview(propertyId: string) {
+  const now = new Date();
+  const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const [totalContacts, overdue, dueThisWeek, recentlyUpdated] = await Promise.all([
+    db.partnerOrganization.count({
+      where: {
+        propertyId,
+        archivedAt: null,
+      },
+    }),
+    db.partnerOrganization.findMany({
+      where: {
+        propertyId,
+        archivedAt: null,
+        nextActionAt: { lt: now },
+      },
+      include: {
+        tasks: {
+          where: { status: "open" },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            title: true,
+            dueAt: true,
+          },
+        },
+      },
+      orderBy: [{ nextActionAt: "asc" }, { updatedAt: "desc" }],
+      take: 8,
+    }),
+    db.partnerOrganization.findMany({
+      where: {
+        propertyId,
+        archivedAt: null,
+        nextActionAt: {
+          gte: now,
+          lte: weekFromNow,
+        },
+      },
+      include: {
+        contacts: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            whatsapp: true,
+          },
+        },
+        tasks: {
+          where: { status: "open" },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            title: true,
+            dueAt: true,
+          },
+        },
+      },
+      orderBy: [{ nextActionAt: "asc" }, { updatedAt: "desc" }],
+      take: 8,
+    }),
+    db.partnerOrganization.findMany({
+      where: {
+        propertyId,
+        archivedAt: null,
+      },
+      include: {
+        contacts: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          take: 1,
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            whatsapp: true,
+          },
+        },
+        notes: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            text: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 5,
+    }),
+  ]);
+
+  return {
+    totalContacts,
+    overdueCount: overdue.length,
+    dueThisWeekCount: dueThisWeek.length,
+    overdue: overdue.map((organization) => ({
+      id: organization.id,
+      name: organization.name,
+      nextActionText: organization.tasks[0]?.title || "Review next step",
+      nextActionAt: organization.tasks[0]?.dueAt || organization.nextActionAt,
+    })),
+    dueThisWeek: dueThisWeek.map((organization) => ({
+      id: organization.id,
+      name: organization.name,
+      displayStage: getContactStage(organization),
+      nextActionText: organization.tasks[0]?.title || "Review next step",
+      nextActionAt: organization.tasks[0]?.dueAt || organization.nextActionAt,
+      primaryPerson: organization.contacts[0] ?? null,
+    })),
+    recentlyUpdated: recentlyUpdated.map((organization) => ({
+      id: organization.id,
+      name: organization.name,
+      displayStage: getContactStage(organization),
+      notePreview: organization.notes[0]?.text || "Updated contact record",
+      latestUpdateAt: organization.notes[0]?.createdAt || organization.updatedAt,
+    })),
+  };
+}
+
+export async function getContactDetailPage(id: string, propertyId: string) {
+  await ensureDefaultEmailTemplates(propertyId);
+
+  const organization = await db.partnerOrganization.findFirst({
+    where: { id, propertyId },
+    include: {
+      contacts: {
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+      },
+      touches: {
+        orderBy: { happenedAt: "desc" },
+        include: {
+          contact: {
+            select: { id: true, fullName: true },
+          },
+        },
+      },
+      tasks: {
+        orderBy: [{ status: "asc" }, { dueAt: "asc" }],
+        include: {
+          contact: {
+            select: { id: true, fullName: true },
+          },
+        },
+      },
+      notes: {
+        orderBy: { createdAt: "desc" },
+      },
+      tags: {
+        include: {
+          tag: true,
+        },
+        orderBy: {
+          tag: {
+            name: "asc",
+          },
+        },
+      },
+      researchFindings: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      },
+    },
+  });
+
+  if (!organization) {
+    return null;
+  }
+
+  const [activityStream, emailTemplates] = await Promise.all([
+    getActivityStream(id, propertyId),
+    listEmailTemplates(propertyId),
+  ]);
+
+  const now = Date.now();
+  const openTasks = organization.tasks
+    .filter((task) => task.status === "open")
+    .map((task) => ({
+      ...task,
+      isOverdue: task.dueAt.getTime() < now,
+    }));
+  const nextActionTask = openTasks[0] ?? null;
+  const primaryContact = organization.contacts.find((contact) => contact.isPrimary) ?? organization.contacts[0] ?? null;
+
+  return {
+    ...organization,
+    displayStage: getContactStage(organization),
+    primaryContact,
+    openTasks,
+    nextActionTask,
+    tagNames: organization.tags.map((entry) => entry.tag.name),
+    activityStream,
+    emailTemplates,
+  };
+}
+
+export async function getOpsOverview(propertyId: string) {
+  const [organizations, researchFindings, templates, noteCount, touchCount] = await Promise.all([
+    db.partnerOrganization.findMany({
+      where: {
+        propertyId,
+        archivedAt: null,
+      },
+      include: {
+        contacts: {
+          select: {
+            email: true,
+            phone: true,
+            whatsapp: true,
+          },
+        },
+        tasks: {
+          where: { status: "open" },
+          orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+          take: 1,
+          select: {
+            title: true,
+            dueAt: true,
+          },
+        },
+      },
+      orderBy: [{ updatedAt: "desc" }],
+    }),
+    listResearchFindings(propertyId, { status: "all" }),
+    listEmailTemplates(propertyId),
+    db.note.count({
+      where: {
+        organization: {
+          propertyId,
+        },
+      },
+    }),
+    db.outreachTouch.count({
+      where: {
+        organization: {
+          propertyId,
+        },
+      },
+    }),
+  ]);
+
+  const stageSnapshots = (["researching", "ready", "outreach_sent", "in_conversation", "active_partner", "dormant"] as const)
+    .map((stage) => ({
+      stage,
+      label:
+        stage === "ready"
+          ? "Ready to Contact"
+          : stage === "outreach_sent"
+            ? "Outreach Sent"
+            : stage === "in_conversation"
+              ? "In Conversation"
+              : stage === "active_partner"
+                ? "Active Partner"
+                : stage === "dormant"
+                  ? "Dormant"
+                  : "Researching",
+      count: organizations.filter((organization) => getContactStage(organization) === stage).length,
+    })) as OpsStageSnapshot[];
+
+  const sourceBreakdown = Array.from(
+    organizations.reduce((accumulator, organization) => {
+      const source = organization.source?.trim() || "manual";
+      accumulator.set(source, (accumulator.get(source) ?? 0) + 1);
+      return accumulator;
+    }, new Map<string, number>())
+  )
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([source, count]) => ({ source, count }));
+
+  return {
+    pipelineSnapshot: stageSnapshots,
+    summary: {
+      totalContacts: organizations.length,
+      totalTouches: touchCount,
+      totalNotes: noteCount,
+      activePartners: organizations.filter((organization) => organization.status === "active_partner").length,
+    },
+    queues: {
+      notYetContacted: organizations
+        .filter((organization) => {
+          const stage = getContactStage(organization);
+          return stage === "researching" || stage === "ready";
+        })
+        .slice(0, 8)
+        .map((organization) => ({
+          id: organization.id,
+          name: organization.name,
+          displayStage: getContactStage(organization),
+          nextActionText: organization.tasks[0]?.title || "Review research",
+          nextActionAt: organization.tasks[0]?.dueAt || organization.nextActionAt,
+        })),
+      awaitingReply: organizations
+        .filter((organization) => organization.status === "contacted" || organization.status === "awaiting_reply")
+        .slice(0, 8)
+        .map((organization) => ({
+          id: organization.id,
+          name: organization.name,
+          displayStage: getContactStage(organization),
+          nextActionText: organization.tasks[0]?.title || "Follow up",
+          nextActionAt: organization.tasks[0]?.dueAt || organization.nextActionAt,
+        })),
+    },
+    templates,
+    sourceBreakdown,
+    researchInbox: researchFindings.filter((finding) => finding.status === "new" || finding.status === "reviewed"),
   };
 }
 
@@ -515,6 +1096,17 @@ export async function getOrganizationDetail(id: string, propertyId: string) {
           },
         },
       },
+      notes: {
+        orderBy: { createdAt: "desc" },
+      },
+      tags: {
+        include: {
+          tag: true,
+        },
+      },
+      researchFindings: {
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -529,6 +1121,7 @@ export async function getOrganizationDetail(id: string, propertyId: string) {
       ...task,
       isOverdue: task.status === "open" && task.dueAt.getTime() < now,
     })),
+    activityStream: await getActivityStream(id, propertyId),
   };
 }
 
@@ -723,6 +1316,263 @@ export async function listDueFollowUps(propertyId: string, filters: FollowUpFilt
   }));
 }
 
+export async function createQuickContact(
+  context: PartnersRequestContext,
+  input: {
+    name: string;
+    type: PartnerType;
+    emailOrWhatsapp?: string;
+  }
+) {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error("Contact name is required");
+  }
+
+  const rawContact = input.emailOrWhatsapp?.trim() || "";
+  const looksLikeEmail = rawContact.includes("@");
+  const dueAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+  return db.$transaction(async (tx) => {
+    const organization = await tx.partnerOrganization.create({
+      data: {
+        propertyId: context.propertyId,
+        name,
+        type: input.type,
+        email: looksLikeEmail ? rawContact : null,
+        whatsapp: !looksLikeEmail && rawContact ? rawContact : null,
+        source: "manual",
+        ownerUserId: context.userId,
+        ownerUserName: context.userName,
+        status: "not_contacted",
+        visitStatus: "never_invited",
+        nextActionAt: dueAt,
+      },
+    });
+
+    await tx.followUpTask.create({
+      data: {
+        organizationId: organization.id,
+        title: "Research this operator",
+        dueAt,
+        assignedToUserId: context.userId,
+        assignedToUserName: context.userName,
+        createdByUserId: context.userId,
+        createdByUserName: context.userName,
+      },
+    });
+
+    await tx.note.create({
+      data: {
+        organizationId: organization.id,
+        text: "Created contact from quick add.",
+        author: context.userName,
+      },
+    });
+
+    return organization;
+  });
+}
+
+export async function addNote(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    text: string;
+    author?: string;
+  }
+) {
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  const text = input.text.trim();
+  if (!text) {
+    throw new Error("Note text is required");
+  }
+
+  return db.note.create({
+    data: {
+      organizationId: input.organizationId,
+      text,
+      author: input.author?.trim() || context.userName,
+    },
+  });
+}
+
+export async function updateContactField(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    field: EditableOrganizationField;
+    value: string;
+  }
+) {
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  const allowedFields: EditableOrganizationField[] = [
+    "email",
+    "phone",
+    "whatsapp",
+    "website",
+    "country",
+    "city",
+    "marketNotes",
+    "source",
+  ];
+
+  if (!allowedFields.includes(input.field)) {
+    throw new Error("Field is not editable");
+  }
+
+  return db.partnerOrganization.update({
+    where: { id: input.organizationId },
+    data: {
+      [input.field]: input.value.trim() || null,
+    },
+  });
+}
+
+export async function updatePartnerContact(
+  context: PartnersRequestContext,
+  input: {
+    contactId: string;
+    fullName: string;
+    roleTitle?: string;
+    email?: string;
+    phone?: string;
+    whatsapp?: string;
+    isPrimary?: boolean;
+  }
+) {
+  const contact = await db.partnerContact.findFirst({
+    where: {
+      id: input.contactId,
+      organization: {
+        propertyId: context.propertyId,
+      },
+    },
+    select: {
+      id: true,
+      organizationId: true,
+    },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+
+  const fullName = input.fullName.trim();
+  if (!fullName) {
+    throw new Error("Contact name is required");
+  }
+
+  return db.$transaction(async (tx) => {
+    if (input.isPrimary) {
+      await tx.partnerContact.updateMany({
+        where: { organizationId: contact.organizationId },
+        data: { isPrimary: false },
+      });
+    }
+
+    return tx.partnerContact.update({
+      where: { id: input.contactId },
+      data: {
+        fullName,
+        roleTitle: input.roleTitle?.trim() || null,
+        email: input.email?.trim() || null,
+        phone: input.phone?.trim() || null,
+        whatsapp: input.whatsapp?.trim() || null,
+        isPrimary: Boolean(input.isPrimary),
+      },
+    });
+  });
+}
+
+export async function addTagToContact(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    tagName: string;
+  }
+) {
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  const tagName = input.tagName.trim();
+  if (!tagName) {
+    throw new Error("Tag name is required");
+  }
+
+  return db.$transaction(async (tx) => {
+    const tag = await tx.tag.upsert({
+      where: { name: tagName },
+      update: {},
+      create: { name: tagName },
+    });
+
+    await tx.tagOnContact.upsert({
+      where: {
+        organizationId_tagId: {
+          organizationId: input.organizationId,
+          tagId: tag.id,
+        },
+      },
+      update: {},
+      create: {
+        organizationId: input.organizationId,
+        tagId: tag.id,
+      },
+    });
+
+    return tag;
+  });
+}
+
+export async function removeTagFromContact(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    tagId?: string;
+    tagName?: string;
+  }
+) {
+  const organization = await getScopedOrganization(context.propertyId, input.organizationId);
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  const tagId = input.tagId?.trim();
+  const tagName = input.tagName?.trim();
+
+  if (!tagId && !tagName) {
+    throw new Error("Tag id or tag name is required");
+  }
+
+  const tag = tagId
+    ? await db.tag.findUnique({ where: { id: tagId } })
+    : await db.tag.findUnique({ where: { name: tagName || "" } });
+
+  if (!tag) {
+    throw new Error("Tag not found");
+  }
+
+  await db.tagOnContact.deleteMany({
+    where: {
+      organizationId: input.organizationId,
+      tagId: tag.id,
+    },
+  });
+
+  return tag;
+}
+
 export async function createOrganization(
   context: PartnersRequestContext,
   input: {
@@ -743,6 +1593,11 @@ export async function createOrganization(
     throw new Error("Organization name is required");
   }
 
+  const nextActionAt = input.nextActionAt?.trim() ? new Date(input.nextActionAt) : null;
+  if (input.nextActionAt?.trim() && (!nextActionAt || Number.isNaN(nextActionAt.getTime()))) {
+    throw new Error("A valid next action date is required");
+  }
+
   return db.partnerOrganization.create({
     data: {
       propertyId: context.propertyId,
@@ -760,7 +1615,7 @@ export async function createOrganization(
       ownerUserName: context.userName,
       status: "not_contacted",
       visitStatus: "never_invited",
-      nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : null,
+      nextActionAt,
     },
   });
 }
@@ -993,14 +1848,55 @@ export async function scheduleFollowUpTask(
       },
     });
 
-    await tx.partnerOrganization.update({
-      where: { id: input.organizationId },
+    await syncOrganizationNextActionAt(tx, input.organizationId);
+
+    return task;
+  });
+}
+
+export async function updateFollowUpTask(
+  context: PartnersRequestContext,
+  input: {
+    taskId: string;
+    title: string;
+    dueAt: string;
+  }
+) {
+  const task = await db.followUpTask.findFirst({
+    where: {
+      id: input.taskId,
+      organization: { propertyId: context.propertyId },
+    },
+    select: {
+      id: true,
+      organizationId: true,
+    },
+  });
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  const title = input.title.trim();
+  if (!title) {
+    throw new Error("Task title is required");
+  }
+
+  const dueAt = new Date(input.dueAt);
+  if (Number.isNaN(dueAt.getTime())) {
+    throw new Error("A valid due date is required");
+  }
+
+  return db.$transaction(async (tx) => {
+    const updatedTask = await tx.followUpTask.update({
+      where: { id: input.taskId },
       data: {
-        nextActionAt: dueAt,
+        title,
+        dueAt,
       },
     });
 
-    return task;
+    await syncOrganizationNextActionAt(tx, task.organizationId);
+    return updatedTask;
   });
 }
 
@@ -1233,10 +2129,9 @@ export async function bulkScheduleFollowUpTasks(
       })),
     });
 
-    await tx.partnerOrganization.updateMany({
-      where: { id: { in: organizationIds } },
-      data: { nextActionAt: dueAt },
-    });
+    for (const organizationId of organizationIds) {
+      await syncOrganizationNextActionAt(tx, organizationId);
+    }
   });
 }
 
@@ -1246,18 +2141,23 @@ export async function completeFollowUpTask(context: PartnersRequestContext, task
       id: taskId,
       organization: { propertyId: context.propertyId },
     },
-    select: { id: true },
+    select: { id: true, organizationId: true },
   });
   if (!task) {
     throw new Error("Task not found");
   }
 
-  return db.followUpTask.update({
-    where: { id: taskId },
-    data: {
-      status: "done",
-      completedAt: new Date(),
-    },
+  return db.$transaction(async (tx) => {
+    const updatedTask = await tx.followUpTask.update({
+      where: { id: taskId },
+      data: {
+        status: "done",
+        completedAt: new Date(),
+      },
+    });
+
+    await syncOrganizationNextActionAt(tx, task.organizationId);
+    return updatedTask;
   });
 }
 
@@ -1285,24 +2185,69 @@ export async function updateFollowUpAssignee(
   });
 }
 
+export async function setFollowUpTaskStatus(
+  context: PartnersRequestContext,
+  input: {
+    taskId: string;
+    status: TaskStatus;
+  }
+) {
+  if (input.status === "done") {
+    return completeFollowUpTask(context, input.taskId);
+  }
+
+  if (input.status === "open") {
+    return reopenFollowUpTask(context, input.taskId);
+  }
+
+  const task = await db.followUpTask.findFirst({
+    where: {
+      id: input.taskId,
+      organization: { propertyId: context.propertyId },
+    },
+    select: { id: true, organizationId: true },
+  });
+  if (!task) {
+    throw new Error("Task not found");
+  }
+
+  return db.$transaction(async (tx) => {
+    const updatedTask = await tx.followUpTask.update({
+      where: { id: input.taskId },
+      data: {
+        status: input.status,
+        completedAt: null,
+      },
+    });
+
+    await syncOrganizationNextActionAt(tx, task.organizationId);
+    return updatedTask;
+  });
+}
+
 export async function reopenFollowUpTask(context: PartnersRequestContext, taskId: string) {
   const task = await db.followUpTask.findFirst({
     where: {
       id: taskId,
       organization: { propertyId: context.propertyId },
     },
-    select: { id: true },
+    select: { id: true, organizationId: true },
   });
   if (!task) {
     throw new Error("Task not found");
   }
 
-  return db.followUpTask.update({
-    where: { id: taskId },
-    data: {
-      status: "open",
-      completedAt: null,
-    },
+  return db.$transaction(async (tx) => {
+    const updatedTask = await tx.followUpTask.update({
+      where: { id: taskId },
+      data: {
+        status: "open",
+        completedAt: null,
+      },
+    });
+
+    await syncOrganizationNextActionAt(tx, task.organizationId);
+    return updatedTask;
   });
 }
 

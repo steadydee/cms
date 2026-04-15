@@ -8,6 +8,8 @@ import {
 } from "@prisma/client";
 import type { PartnersRequestContext } from "@/lib/auth";
 import {
+  addNote,
+  addTagToContact,
   addContact,
   archiveOrganization,
   bulkScheduleFollowUpTasks,
@@ -16,10 +18,12 @@ import {
   createOrganization,
   createResearchFinding,
   draftIntroEmail,
+  getActivityStream,
   getDashboardSummary,
   getOrganizationDetail,
   getOrganizationViewCounts,
   getResearchFindingDetail,
+  removeTagFromContact,
   listDueFollowUps,
   listOrganizations,
   listRecentlyActiveOrganizations,
@@ -30,6 +34,7 @@ import {
   scheduleFollowUpTask,
   sendIntroEmail,
   unarchiveOrganization,
+  updateContactField,
   updateFollowUpAssignee,
   updateResearchFindingStatus,
   updateOrganizationProfile,
@@ -196,6 +201,31 @@ function toBulkAction(value: unknown): "mark_contacted" | "mark_awaiting_reply" 
   throw new ToolError("VALIDATION_FAILED", "Invalid bulk action.", { status: 400 });
 }
 
+function toEditableContactField(value: unknown):
+  | "email"
+  | "phone"
+  | "whatsapp"
+  | "website"
+  | "country"
+  | "city"
+  | "marketNotes"
+  | "source" {
+  if (
+    value === "email"
+    || value === "phone"
+    || value === "whatsapp"
+    || value === "website"
+    || value === "country"
+    || value === "city"
+    || value === "marketNotes"
+    || value === "source"
+  ) {
+    return value;
+  }
+
+  throw new ToolError("VALIDATION_FAILED", "Invalid editable field.", { status: 400 });
+}
+
 function toExtractedJson(input: Record<string, unknown>) {
   const value = input.extractedDataJson;
   if (value === undefined) return undefined;
@@ -311,6 +341,17 @@ export async function executeTool(
       };
     }
 
+    case "get_activity_stream": {
+      const organizationId = requireString(input, "organizationId");
+      const stream = await getActivityStream(organizationId, context.propertyId);
+      return {
+        data: stream,
+        audit: {
+          target: { entityType: "partner_organization", entityId: organizationId },
+        },
+      };
+    }
+
     case "create_partner_account": {
       const organization = await createOrganization(context, {
         name: requireString(input, "name"),
@@ -329,6 +370,61 @@ export async function executeTool(
         data: organization,
         audit: {
           target: { entityType: "partner_organization", entityId: organization.id },
+        },
+      };
+    }
+
+    case "update_contact_field": {
+      const organization = await updateContactField(context, {
+        organizationId: requireString(input, "organizationId"),
+        field: toEditableContactField(input.field),
+        value: optionalString(input, "value") ?? "",
+      });
+      return {
+        data: organization,
+        audit: {
+          target: { entityType: "partner_organization", entityId: organization.id },
+        },
+      };
+    }
+
+    case "add_note": {
+      const note = await addNote(context, {
+        organizationId: requireString(input, "organizationId"),
+        text: requireString(input, "text"),
+        author: "AI Agent",
+      });
+      return {
+        data: note,
+        audit: {
+          target: { entityType: "partner_organization", entityId: requireString(input, "organizationId") },
+        },
+      };
+    }
+
+    case "add_tag": {
+      const tag = await addTagToContact(context, {
+        organizationId: requireString(input, "organizationId"),
+        tagName: requireString(input, "tagName"),
+      });
+      return {
+        data: tag,
+        audit: {
+          target: { entityType: "partner_organization", entityId: requireString(input, "organizationId") },
+        },
+      };
+    }
+
+    case "remove_tag": {
+      const tag = await removeTagFromContact(context, {
+        organizationId: requireString(input, "organizationId"),
+        tagId: optionalString(input, "tagId"),
+        tagName: optionalString(input, "tagName"),
+      });
+      return {
+        data: tag,
+        audit: {
+          target: { entityType: "partner_organization", entityId: requireString(input, "organizationId") },
         },
       };
     }

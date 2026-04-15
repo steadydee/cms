@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { ResearchSourceType } from "@prisma/client";
 import { authorizePartnersAccess } from "@/lib/auth";
+import { setFlashMessage } from "@/lib/flash";
 import {
   createResearchFinding,
   promoteResearchFindingToOrganization,
@@ -34,72 +36,128 @@ function parseExtractedDataJson(value: string): unknown {
   }
 }
 
+function getReturnTo(formData: FormData, fallback: string) {
+  const value = String(formData.get("returnTo") ?? "").trim();
+  return value || fallback;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error && error.message.trim() ? error.message : "Something went wrong. Please try again.";
+}
+
+async function setSuccessAndRedirect(message: string, returnTo: string) {
+  await setFlashMessage({ type: "success", text: message });
+  redirect(returnTo);
+}
+
+async function setErrorAndRedirect(error: unknown, returnTo: string) {
+  await setFlashMessage({ type: "error", text: getErrorMessage(error) });
+  redirect(returnTo);
+}
+
 export async function createResearchFindingAction(formData: FormData) {
-  const access = await authorizePartnersAccess("write");
-  if (!access.ok) {
-    throw new Error(access.message);
+  const returnTo = getReturnTo(formData, "/ops");
+
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      throw new Error(access.message);
+    }
+
+    const rawConfidence = String(formData.get("confidence") ?? "").trim();
+
+    await createResearchFinding(access.context, {
+      sourceType: parseSourceType(formData.get("sourceType") as string | null),
+      sourceUrl: String(formData.get("sourceUrl") ?? ""),
+      sourceHandle: String(formData.get("sourceHandle") ?? ""),
+      observedName: String(formData.get("observedName") ?? ""),
+      observedText: String(formData.get("observedText") ?? ""),
+      extractedDataJson: parseExtractedDataJson(String(formData.get("extractedDataJson") ?? "")),
+      confidence: rawConfidence ? Number(rawConfidence) : undefined,
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/ops");
+    revalidatePath("/research");
+  } catch (error) {
+    await setErrorAndRedirect(error, returnTo);
   }
 
-  const rawConfidence = String(formData.get("confidence") ?? "").trim();
-
-  await createResearchFinding(access.context, {
-    sourceType: parseSourceType(formData.get("sourceType") as string | null),
-    sourceUrl: String(formData.get("sourceUrl") ?? ""),
-    sourceHandle: String(formData.get("sourceHandle") ?? ""),
-    observedName: String(formData.get("observedName") ?? ""),
-    observedText: String(formData.get("observedText") ?? ""),
-    extractedDataJson: parseExtractedDataJson(String(formData.get("extractedDataJson") ?? "")),
-    confidence: rawConfidence ? Number(rawConfidence) : undefined,
-  });
-
-  revalidatePath("/dashboard");
-  revalidatePath("/research");
+  await setSuccessAndRedirect("Research finding saved.", returnTo);
 }
 
 export async function markResearchFindingReviewedAction(formData: FormData) {
-  const access = await authorizePartnersAccess("write");
-  if (!access.ok) {
-    throw new Error(access.message);
+  const returnTo = getReturnTo(formData, "/ops");
+
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      throw new Error(access.message);
+    }
+
+    const findingId = String(formData.get("findingId") ?? "");
+    await updateResearchFindingStatus(access.context, {
+      findingId,
+      status: "reviewed",
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/ops");
+    revalidatePath("/research");
+  } catch (error) {
+    await setErrorAndRedirect(error, returnTo);
   }
 
-  const findingId = String(formData.get("findingId") ?? "");
-  await updateResearchFindingStatus(access.context, {
-    findingId,
-    status: "reviewed",
-  });
-
-  revalidatePath("/dashboard");
-  revalidatePath("/research");
+  await setSuccessAndRedirect("Research item marked reviewed.", returnTo);
 }
 
 export async function discardResearchFindingAction(formData: FormData) {
-  const access = await authorizePartnersAccess("write");
-  if (!access.ok) {
-    throw new Error(access.message);
+  const returnTo = getReturnTo(formData, "/ops");
+
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      throw new Error(access.message);
+    }
+
+    const findingId = String(formData.get("findingId") ?? "");
+    await updateResearchFindingStatus(access.context, {
+      findingId,
+      status: "discarded",
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/ops");
+    revalidatePath("/research");
+  } catch (error) {
+    await setErrorAndRedirect(error, returnTo);
   }
 
-  const findingId = String(formData.get("findingId") ?? "");
-  await updateResearchFindingStatus(access.context, {
-    findingId,
-    status: "discarded",
-  });
-
-  revalidatePath("/dashboard");
-  revalidatePath("/research");
+  await setSuccessAndRedirect("Research item discarded.", returnTo);
 }
 
 export async function promoteResearchFindingAction(formData: FormData) {
-  const access = await authorizePartnersAccess("write");
-  if (!access.ok) {
-    throw new Error(access.message);
+  const returnTo = getReturnTo(formData, "/ops");
+
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      throw new Error(access.message);
+    }
+
+    const findingId = String(formData.get("findingId") ?? "");
+    await promoteResearchFindingToOrganization(access.context, {
+      findingId,
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/contacts");
+    revalidatePath("/ops");
+    revalidatePath("/research");
+    revalidatePath("/organizations");
+  } catch (error) {
+    await setErrorAndRedirect(error, returnTo);
   }
 
-  const findingId = String(formData.get("findingId") ?? "");
-  await promoteResearchFindingToOrganization(access.context, {
-    findingId,
-  });
-
-  revalidatePath("/dashboard");
-  revalidatePath("/research");
-  revalidatePath("/organizations");
+  await setSuccessAndRedirect("Research item promoted to contact.", returnTo);
 }
