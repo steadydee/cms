@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, List, PanelLeftClose } from "lucide-react";
+import { ArrowLeft, LayoutGrid, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -10,8 +10,19 @@ const navigation = [
   { label: "Contacts", href: "/contacts", icon: List },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  hubHref,
+  userName,
+  role,
+  propertyId,
+}: {
+  hubHref: string;
+  userName: string;
+  role: string;
+  propertyId: string;
+}) {
   const pathname = usePathname();
+  const userInitial = userName.trim().charAt(0).toUpperCase() || "U";
 
   return (
     <aside className="hidden w-[72px] shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex md:flex-col md:items-center md:py-4">
@@ -46,8 +57,20 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-accent text-sidebar-foreground/65">
-        <PanelLeftClose className="h-4 w-4" />
+      <div className="flex flex-col items-center gap-3">
+        <div
+          title={`${userName} · ${role} · ${propertyId}`}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-accent text-[12px] font-semibold text-sidebar-foreground/85"
+        >
+          {userInitial}
+        </div>
+        <Link
+          href={hubHref}
+          title="Back to Hub"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-accent text-sidebar-foreground/70 transition hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
       </div>
     </aside>
   );
