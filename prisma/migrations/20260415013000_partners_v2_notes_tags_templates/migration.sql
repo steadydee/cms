@@ -1,4 +1,4 @@
-CREATE TABLE "Note" (
+CREATE TABLE IF NOT EXISTS "Note" (
   "id" TEXT NOT NULL,
   "organizationId" TEXT NOT NULL,
   "text" TEXT NOT NULL,
@@ -8,21 +8,21 @@ CREATE TABLE "Note" (
   CONSTRAINT "Note_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "Tag" (
+CREATE TABLE IF NOT EXISTS "Tag" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
 
   CONSTRAINT "Tag_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "TagOnContact" (
+CREATE TABLE IF NOT EXISTS "TagOnContact" (
   "organizationId" TEXT NOT NULL,
   "tagId" TEXT NOT NULL,
 
   CONSTRAINT "TagOnContact_pkey" PRIMARY KEY ("organizationId", "tagId")
 );
 
-CREATE TABLE "EmailTemplate" (
+CREATE TABLE IF NOT EXISTS "EmailTemplate" (
   "id" TEXT NOT NULL,
   "propertyId" TEXT NOT NULL,
   "name" TEXT NOT NULL,
@@ -35,25 +35,40 @@ CREATE TABLE "EmailTemplate" (
   CONSTRAINT "EmailTemplate_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "Tag_name_key" ON "Tag"("name");
-CREATE INDEX "Note_organizationId_createdAt_idx" ON "Note"("organizationId", "createdAt");
-CREATE INDEX "TagOnContact_tagId_idx" ON "TagOnContact"("tagId");
-CREATE INDEX "EmailTemplate_propertyId_sortOrder_idx" ON "EmailTemplate"("propertyId", "sortOrder");
+CREATE UNIQUE INDEX IF NOT EXISTS "Tag_name_key" ON "Tag"("name");
+CREATE INDEX IF NOT EXISTS "Note_organizationId_createdAt_idx" ON "Note"("organizationId", "createdAt");
+CREATE INDEX IF NOT EXISTS "TagOnContact_tagId_idx" ON "TagOnContact"("tagId");
+CREATE INDEX IF NOT EXISTS "EmailTemplate_propertyId_sortOrder_idx" ON "EmailTemplate"("propertyId", "sortOrder");
 
-ALTER TABLE "Note"
-ADD CONSTRAINT "Note_organizationId_fkey"
-FOREIGN KEY ("organizationId") REFERENCES "PartnerOrganization"("id")
-ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Note_organizationId_fkey') THEN
+    ALTER TABLE "Note"
+    ADD CONSTRAINT "Note_organizationId_fkey"
+    FOREIGN KEY ("organizationId") REFERENCES "PartnerOrganization"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "TagOnContact"
-ADD CONSTRAINT "TagOnContact_organizationId_fkey"
-FOREIGN KEY ("organizationId") REFERENCES "PartnerOrganization"("id")
-ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'TagOnContact_organizationId_fkey') THEN
+    ALTER TABLE "TagOnContact"
+    ADD CONSTRAINT "TagOnContact_organizationId_fkey"
+    FOREIGN KEY ("organizationId") REFERENCES "PartnerOrganization"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "TagOnContact"
-ADD CONSTRAINT "TagOnContact_tagId_fkey"
-FOREIGN KEY ("tagId") REFERENCES "Tag"("id")
-ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'TagOnContact_tagId_fkey') THEN
+    ALTER TABLE "TagOnContact"
+    ADD CONSTRAINT "TagOnContact_tagId_fkey"
+    FOREIGN KEY ("tagId") REFERENCES "Tag"("id")
+    ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 WITH "property_ids" AS (
   SELECT DISTINCT "propertyId" FROM "PartnerOrganization"
