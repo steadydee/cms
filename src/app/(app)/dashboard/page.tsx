@@ -23,8 +23,9 @@ export default async function DashboardPage() {
       <section className="rounded-[24px] border border-[#e8e0d4] bg-white px-6 py-6 shadow-sm">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Dashboard</p>
-            <p className="mt-3 text-[14px] text-[#8c7e6a]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Overview</p>
+            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[#2c2416]">Dashboard</h1>
+            <p className="mt-2 text-[13px] text-[#8c7e6a]">
               {dashboard.totalContacts} contacts · {dashboard.overdueCount} overdue · {dashboard.dueThisWeekCount} due this week
             </p>
           </div>
