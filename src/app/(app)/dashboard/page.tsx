@@ -3,6 +3,7 @@ import { getPartnersRequestContext } from "@/lib/auth";
 import { CONTACT_STAGE_META } from "@/lib/partners-ui";
 import { getDashboardOverview, getOpsOverview } from "@/lib/services/partners";
 import { QuickAddContact } from "@/components/contacts/quick-add-contact";
+import { EmailTemplateCard } from "@/components/dashboard/email-template-card";
 import {
   discardResearchFindingAction,
   markResearchFindingReviewedAction,
@@ -258,13 +259,7 @@ export default async function DashboardPage() {
         <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Email templates</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {ops.templates.map((template) => (
-              <div key={template.id} className="rounded-xl border border-[#ebe3d8] bg-[#fffdfa] p-4">
-                <p className="text-[13px] font-semibold text-[#2c2416]">{template.name}</p>
-                <p className="mt-2 text-[12px] font-medium text-[#6d614d]">{template.subject}</p>
-                <p className="mt-3 line-clamp-4 text-[12px] leading-relaxed text-[#8c7e6a]">{template.body}</p>
-              </div>
-            ))}
+            {ops.templates.map((template) => <EmailTemplateCard key={template.id} template={template} />)}
           </div>
         </section>
 

@@ -374,6 +374,53 @@ export async function listEmailTemplates(propertyId: string) {
   });
 }
 
+export async function updateEmailTemplate(
+  context: PartnersRequestContext,
+  input: {
+    templateId: string;
+    subject: string;
+    body: string;
+  }
+) {
+  const templateId = input.templateId.trim();
+  const subject = input.subject.trim();
+  const body = input.body.trim();
+
+  if (!templateId) {
+    throw new Error("Template is required.");
+  }
+
+  if (!subject) {
+    throw new Error("Subject is required.");
+  }
+
+  if (!body) {
+    throw new Error("Body is required.");
+  }
+
+  const template = await db.emailTemplate.findFirst({
+    where: {
+      id: templateId,
+      propertyId: context.propertyId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!template) {
+    throw new Error("Template not found.");
+  }
+
+  return db.emailTemplate.update({
+    where: { id: template.id },
+    data: {
+      subject,
+      body,
+    },
+  });
+}
+
 export function renderEmailTemplate(
   template: { subject: string; body: string },
   values: { company?: string | null; name?: string | null }
