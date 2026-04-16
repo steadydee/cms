@@ -195,7 +195,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <Link href={backHref} className="text-[12px] font-medium text-[#8c7e6a]">
-              ← Back
+              ← Back to accounts
             </Link>
             <h1 className="mt-2 font-serif text-[30px] font-semibold tracking-tight text-[#2c2416]">{contact.name}</h1>
             <p className="mt-2 text-[14px] text-[#8c7e6a]">
@@ -269,11 +269,11 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   setNoteText("");
                 }
               }}
-              placeholder="Add a note... (⌘+Enter to save)"
+              placeholder="Add an internal note... (⌘+Enter to save)"
               className="min-h-[96px] w-full rounded-xl border border-[#e8e0d4] bg-[#fdfaf6] px-4 py-3 text-[14px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[12px] text-[#8c7e6a]">Freeform notes stay at the top of the activity stream.</p>
+              <p className="text-[12px] text-[#8c7e6a]">Internal notes stay at the top of the activity stream.</p>
               <button
                 type="button"
                 disabled={!noteText.trim() || isPending}
@@ -462,7 +462,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
         </section>
 
         <aside className="space-y-5">
-          <CardSection title="Contact info">
+          <CardSection title="Account details">
             <EditableField
               key={`email:${contact.email ?? ""}`}
               icon={Mail}
@@ -608,7 +608,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
           </CardSection>
 
           <CardSection title="Stage">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Contact status</label>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Relationship status</label>
             <select
               value={statusValue}
               onChange={(event) => {
@@ -813,7 +813,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             <input type="hidden" name="returnTo" value={`/contacts/${contact.id}`} />
             <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#f0d9c9] bg-[#fff7f0] px-4 py-3 text-[13px] font-medium text-[#c4713b]">
               <Archive className="h-4 w-4" />
-              Archive contact
+              Archive account
             </button>
           </form>
         </aside>

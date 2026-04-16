@@ -17,6 +17,9 @@ export default async function DashboardPage() {
     getDashboardOverview(context.propertyId),
     getOpsOverview(context.propertyId),
   ]);
+  const researchingCount = ops.pipelineSnapshot.find((item) => item.stage === "researching")?.count ?? 0;
+  const readyCount = ops.pipelineSnapshot.find((item) => item.stage === "ready")?.count ?? 0;
+  const outreachSentCount = ops.pipelineSnapshot.find((item) => item.stage === "outreach_sent")?.count ?? 0;
 
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6">
@@ -24,9 +27,9 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Overview</p>
-            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[#2c2416]">Dashboard</h1>
+            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[#2c2416]">Partners</h1>
             <p className="mt-2 text-[13px] text-[#8c7e6a]">
-              {dashboard.totalContacts} contacts · {dashboard.overdueCount} overdue · {dashboard.dueThisWeekCount} due this week
+              Outreach CRM for birding operators and agencies in Colombia.
             </p>
           </div>
           <QuickAddContact returnTo="/dashboard" />
@@ -34,9 +37,42 @@ export default async function DashboardPage() {
 
         <div className="mt-6 flex flex-wrap gap-2 text-[12px]">
           <Link href="/contacts" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
-            Contacts
+            Accounts
+          </Link>
+          <Link href="/research" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
+            Research
+          </Link>
+          <Link href="/tasks" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
+            Tasks
           </Link>
         </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <PriorityCard
+          label="Accounts"
+          value={dashboard.totalContacts}
+          href="/contacts"
+          note="All active operators and agencies"
+        />
+        <PriorityCard
+          label="Needs first outreach"
+          value={researchingCount + readyCount}
+          href="/contacts?stage=ready"
+          note="Researching and ready-to-contact accounts"
+        />
+        <PriorityCard
+          label="Awaiting reply"
+          value={outreachSentCount}
+          href="/contacts?stage=outreach_sent"
+          note="Outreach sent and waiting on response"
+        />
+        <PriorityCard
+          label="Research inbox"
+          value={ops.researchInbox.length}
+          href="/research"
+          note="New or reviewed findings waiting for action"
+        />
       </section>
 
       <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
@@ -55,7 +91,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Total contacts" value={ops.summary.totalContacts} />
+        <SummaryCard label="Total accounts" value={ops.summary.totalContacts} />
         <SummaryCard label="Total touches" value={ops.summary.totalTouches} />
         <SummaryCard label="Total notes" value={ops.summary.totalNotes} />
         <SummaryCard label="Active partners" value={ops.summary.activePartners} />
@@ -76,7 +112,7 @@ export default async function DashboardPage() {
                   <p className="mt-1 text-[12px] text-[#8c7e6a]">{item.nextActionText}</p>
                 </div>
                 <span className="text-[12px] font-medium text-[#c4713b]">
-                  {item.nextActionAt ? `Due ${item.nextActionAt.toLocaleDateString()}` : "Open contact"}
+                  {item.nextActionAt ? `Due ${item.nextActionAt.toLocaleDateString()}` : "Open account"}
                 </span>
               </Link>
             ))}
@@ -117,7 +153,7 @@ export default async function DashboardPage() {
         ) : (
           <EmptyCard
             title="Due this week"
-            body="No contacts are due this week."
+            body="No accounts are due this week."
           />
         )}
 
@@ -125,7 +161,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <QueueCard title="Not yet contacted" items={ops.queues.notYetContacted} />
+        <QueueCard title="Needs first outreach" items={ops.queues.notYetContacted} />
 
         <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Recently updated</p>
@@ -167,8 +203,8 @@ export default async function DashboardPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Research triage</p>
             <h2 className="mt-2 font-serif text-[24px] font-semibold text-[#2c2416]">Inbox</h2>
           </div>
-          <Link href="/contacts" className="text-[12px] font-medium text-[#3d6b4f]">
-            Contacts
+          <Link href="/research" className="text-[12px] font-medium text-[#3d6b4f]">
+            Research
           </Link>
         </div>
 
@@ -193,7 +229,7 @@ export default async function DashboardPage() {
                       <input type="hidden" name="findingId" value={finding.id} />
                       <input type="hidden" name="returnTo" value="/dashboard" />
                       <button type="submit" className="w-full rounded-lg bg-[#3d6b4f] px-4 py-2 text-[13px] font-medium text-white">
-                        Promote to contact
+                        Promote to account
                       </button>
                     </form>
                     <form action={markResearchFindingReviewedAction}>
@@ -253,6 +289,26 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">{label}</p>
       <p className="mt-3 font-serif text-[28px] font-semibold text-[#2c2416]">{value}</p>
     </div>
+  );
+}
+
+function PriorityCard({
+  label,
+  value,
+  href,
+  note,
+}: {
+  label: string;
+  value: number;
+  href: string;
+  note: string;
+}) {
+  return (
+    <Link href={href} className="rounded-[20px] border border-[#e8e0d4] bg-[#fffdfa] px-5 py-4 shadow-sm transition hover:bg-white">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">{label}</p>
+      <p className="mt-3 font-serif text-[28px] font-semibold text-[#2c2416]">{value}</p>
+      <p className="mt-2 text-[12px] leading-relaxed text-[#8c7e6a]">{note}</p>
+    </Link>
   );
 }
 

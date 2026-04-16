@@ -1326,7 +1326,7 @@ export async function createQuickContact(
 ) {
   const name = input.name.trim();
   if (!name) {
-    throw new Error("Contact name is required");
+    throw new Error("Account name is required");
   }
 
   const rawContact = input.emailOrWhatsapp?.trim() || "";
@@ -1365,7 +1365,7 @@ export async function createQuickContact(
     await tx.note.create({
       data: {
         organizationId: organization.id,
-        text: "Created contact from quick add.",
+        text: "Created account from quick add.",
         author: context.userName,
       },
     });

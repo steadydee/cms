@@ -155,5 +155,5 @@ export async function promoteResearchFindingAction(formData: FormData) {
     await setErrorAndRedirect(error, returnTo);
   }
 
-  await setSuccessAndRedirect("Research item promoted to contact.", returnTo);
+  await setSuccessAndRedirect("Research item promoted to account.", returnTo);
 }

@@ -7,6 +7,20 @@ The app domain is still **Partners**, even though the repo path is `cms`.
 Do not redesign this into a generic CMS tool surface.
 Implement the Owl's Watch platform runtime for the **Partners** domain.
 
+## Human IA Alignment
+
+The human-facing app should now use the same working areas the machine runtime will expose:
+
+- `Dashboard`
+- `Accounts`
+- `Research`
+- `Tasks`
+
+Use `account` or `organization` for the operator or agency record.
+Use `contact` only for the people inside an account.
+
+The tool surface should mirror those same concepts so the browser UI and agent runtime do not drift into different vocabularies.
+
 ## Source Standards
 
 Use these four Hub documents as the authoritative standard:

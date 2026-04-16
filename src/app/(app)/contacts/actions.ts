@@ -124,7 +124,7 @@ export async function createQuickContactAction(formData: FormData) {
     });
 
     revalidateContactsSurface(organization.id);
-    await setFlashMessage({ type: "success", text: `Created contact ${organization.name}.` });
+    await setFlashMessage({ type: "success", text: `Created account ${organization.name}.` });
     redirect(`/contacts/${organization.id}`);
   } catch (error) {
     await setFlashMessage({ type: "error", text: getErrorMessage(error) });
@@ -144,7 +144,7 @@ export async function archiveContactAction(formData: FormData) {
 
     await archiveOrganization(access.context, organizationId);
     revalidateContactsSurface(organizationId);
-    await setFlashMessage({ type: "success", text: "Contact archived." });
+    await setFlashMessage({ type: "success", text: "Account archived." });
     redirect("/contacts");
   } catch (error) {
     await setFlashMessage({ type: "error", text: getErrorMessage(error) });

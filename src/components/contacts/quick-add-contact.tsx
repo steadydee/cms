@@ -26,7 +26,7 @@ export function QuickAddContact({
         }`}
       >
         {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-        {open ? "Close" : "Add Contact"}
+        {open ? "Close" : "Add Account"}
       </button>
 
       {open ? (
@@ -60,7 +60,7 @@ export function QuickAddContact({
             type="submit"
             className="inline-flex items-center rounded-lg bg-[#2c2416] px-4 py-2 text-[13px] font-medium text-white"
           >
-            Create and open
+            Create account
           </button>
         </form>
       ) : null}
