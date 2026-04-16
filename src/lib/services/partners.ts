@@ -774,7 +774,7 @@ export async function getContactDetailPage(id: string, propertyId: string) {
 }
 
 export async function getOpsOverview(propertyId: string) {
-  const [organizations, researchFindings, templates, noteCount, touchCount] = await Promise.all([
+  const [organizations, templates, noteCount, touchCount] = await Promise.all([
     db.partnerOrganization.findMany({
       where: {
         propertyId,
@@ -800,7 +800,6 @@ export async function getOpsOverview(propertyId: string) {
       },
       orderBy: [{ updatedAt: "desc" }],
     }),
-    listResearchFindings(propertyId, { status: "all" }),
     listEmailTemplates(propertyId),
     db.note.count({
       where: {
@@ -865,7 +864,7 @@ export async function getOpsOverview(propertyId: string) {
           id: organization.id,
           name: organization.name,
           displayStage: getContactStage(organization),
-          nextActionText: organization.tasks[0]?.title || "Review research",
+          nextActionText: organization.tasks[0]?.title || "Prepare first outreach",
           nextActionAt: organization.tasks[0]?.dueAt || organization.nextActionAt,
         })),
       awaitingReply: organizations
@@ -881,7 +880,6 @@ export async function getOpsOverview(propertyId: string) {
     },
     templates,
     sourceBreakdown,
-    researchInbox: researchFindings.filter((finding) => finding.status === "new" || finding.status === "reviewed"),
   };
 }
 

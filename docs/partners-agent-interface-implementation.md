@@ -13,13 +13,12 @@ The human-facing app should now use the same working areas the machine runtime w
 
 - `Dashboard`
 - `Accounts`
-- `Research`
 - `Tasks`
 
 Use `account` or `organization` for the operator or agency record.
 Use `contact` only for the people inside an account.
 
-The tool surface should mirror those same concepts so the browser UI and agent runtime do not drift into different vocabularies.
+Research findings can remain available to the machine runtime and internal workflows, but they should no longer appear as a first-class human workspace in the browser UI.
 
 ## Source Standards
 

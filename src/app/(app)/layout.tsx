@@ -38,9 +38,6 @@ export default async function AppLayout({
               <Link href="/contacts" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
                 Accounts
               </Link>
-              <Link href="/research" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
-                Research
-              </Link>
               <Link href="/tasks" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
                 Tasks
               </Link>

@@ -4,11 +4,6 @@ import { CONTACT_STAGE_META } from "@/lib/partners-ui";
 import { getDashboardOverview, getOpsOverview } from "@/lib/services/partners";
 import { QuickAddContact } from "@/components/contacts/quick-add-contact";
 import { EmailTemplateCard } from "@/components/dashboard/email-template-card";
-import {
-  discardResearchFindingAction,
-  markResearchFindingReviewedAction,
-  promoteResearchFindingAction,
-} from "@/app/(app)/research/actions";
 
 export default async function DashboardPage() {
   const context = await getPartnersRequestContext();
@@ -40,16 +35,13 @@ export default async function DashboardPage() {
           <Link href="/contacts" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
             Accounts
           </Link>
-          <Link href="/research" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
-            Research
-          </Link>
           <Link href="/tasks" className="rounded-full bg-[#f3ede4] px-3 py-1.5 font-medium text-[#6b5d4a]">
             Tasks
           </Link>
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <PriorityCard
           label="Accounts"
           value={dashboard.totalContacts}
@@ -67,12 +59,6 @@ export default async function DashboardPage() {
           value={outreachSentCount}
           href="/contacts?stage=outreach_sent"
           note="Outreach sent and waiting on response"
-        />
-        <PriorityCard
-          label="Research inbox"
-          value={ops.researchInbox.length}
-          href="/research"
-          note="New or reviewed findings waiting for action"
         />
       </section>
 
@@ -197,63 +183,6 @@ export default async function DashboardPage() {
           </div>
         </section>
       </div>
-
-      <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Research triage</p>
-            <h2 className="mt-2 font-serif text-[24px] font-semibold text-[#2c2416]">Inbox</h2>
-          </div>
-          <Link href="/research" className="text-[12px] font-medium text-[#3d6b4f]">
-            Research
-          </Link>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {ops.researchInbox.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[#ddd2c4] px-4 py-6 text-[13px] text-[#9a8e7a]">
-              No research items need review.
-            </div>
-          ) : (
-            ops.researchInbox.map((finding) => (
-              <div key={finding.id} className="rounded-xl border border-[#ebe3d8] bg-[#fffdfa] px-4 py-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-semibold text-[#2c2416]">{finding.observedName || "Untitled finding"}</p>
-                    <p className="mt-1 text-[12px] text-[#8c7e6a]">
-                      {[finding.sourceType, finding.sourceHandle, finding.sourceUrl].filter(Boolean).join(" · ") || "No source details"}
-                    </p>
-                    {finding.observedText ? <p className="mt-3 text-[13px] leading-relaxed text-[#4f4639]">{finding.observedText}</p> : null}
-                  </div>
-                  <div className="flex min-w-[220px] flex-col gap-2">
-                    <form action={promoteResearchFindingAction}>
-                      <input type="hidden" name="findingId" value={finding.id} />
-                      <input type="hidden" name="returnTo" value="/dashboard" />
-                      <button type="submit" className="w-full rounded-lg bg-[#3d6b4f] px-4 py-2 text-[13px] font-medium text-white">
-                        Promote to account
-                      </button>
-                    </form>
-                    <form action={markResearchFindingReviewedAction}>
-                      <input type="hidden" name="findingId" value={finding.id} />
-                      <input type="hidden" name="returnTo" value="/dashboard" />
-                      <button type="submit" className="w-full rounded-lg border border-[#2c2416] px-4 py-2 text-[13px] font-medium text-[#2c2416]">
-                        Mark reviewed
-                      </button>
-                    </form>
-                    <form action={discardResearchFindingAction}>
-                      <input type="hidden" name="findingId" value={finding.id} />
-                      <input type="hidden" name="returnTo" value="/dashboard" />
-                      <button type="submit" className="w-full rounded-lg border border-[#f0d9c9] px-4 py-2 text-[13px] font-medium text-[#c4713b]">
-                        Discard
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">

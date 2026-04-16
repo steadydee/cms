@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, FolderKanban, LayoutGrid, Search, SquareCheckBig } from "lucide-react";
+import { ArrowLeft, FolderKanban, LayoutGrid, SquareCheckBig } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { label: "Accounts", href: "/contacts", icon: FolderKanban },
-  { label: "Research", href: "/research", icon: Search },
   { label: "Tasks", href: "/tasks", icon: SquareCheckBig },
 ];
 
