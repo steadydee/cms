@@ -3,6 +3,7 @@ import { getPartnersRequestContext } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { AccessDenied } from "@/components/layout/access-denied";
 import { FlashBanner } from "@/components/layout/flash-banner";
+import { EnvironmentBadge, getEnvironmentName } from "@/components/layout/environment-badge";
 import { getFlashMessage } from "@/lib/flash";
 
 export default async function AppLayout({
@@ -19,6 +20,7 @@ export default async function AppLayout({
   }
 
   const hubHref = process.env.OW_PARTNERS_HUB_URL?.trim() || "http://localhost:3000";
+  const environment = getEnvironmentName();
 
   return (
     <div className="flex h-full min-h-screen bg-background text-foreground">
@@ -27,11 +29,12 @@ export default async function AppLayout({
         userName={context.userName}
         role={context.role}
         propertyId={context.propertyId}
+        environment={environment}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="border-b border-[#e8e0d4] bg-card px-6 py-4 md:hidden">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Link href="/dashboard" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
                 Dashboard
               </Link>
@@ -41,6 +44,7 @@ export default async function AppLayout({
               <Link href="/tasks" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
                 Tasks
               </Link>
+              <EnvironmentBadge environment={environment} />
             </div>
             <Link
               href={hubHref}
