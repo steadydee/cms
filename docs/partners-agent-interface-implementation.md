@@ -57,38 +57,29 @@ The current implementation is partial and not yet PMS-grade.
 ### What already exists
 
 - `/.well-known/ow-tools`
+- authenticated tool discovery
+- tool metadata at `GET /api/tools/[tool]`
 - `POST /api/tools/[tool]`
 - a small tool catalog in [src/lib/tools/definitions.ts](../src/lib/tools/definitions.ts)
-- a simple runtime in [src/lib/tools/runtime.ts](../src/lib/tools/runtime.ts)
+- a shared runtime in [src/lib/tools/runtime.ts](../src/lib/tools/runtime.ts)
 - current handlers in [src/lib/tools/handlers.ts](../src/lib/tools/handlers.ts)
 - service-layer business logic in [src/lib/services/partners.ts](../src/lib/services/partners.ts)
+- Hub handoff session auth, Hub-issued machine-token auth, and PMS-style shell-context auth in [src/lib/auth.ts](../src/lib/auth.ts)
+- audit logging for guarded and restricted tool calls
 
 ### What is still wrong
 
-1. Machine auth is still based on a single static token.
-   - [src/lib/auth.ts](../src/lib/auth.ts) currently accepts `OW_PARTNERS_AGENT_TOKEN`
-   - it trusts actor labels and property context from request headers
-   - it does not verify Hub-issued scoped machine tokens like PMS does
-
-2. Discovery is unauthenticated.
-   - [src/app/.well-known/ow-tools/route.ts](../src/app/.well-known/ow-tools/route.ts) currently returns the catalog without access checks
-
-3. The tool runtime is too thin.
-   - there is no explicit tool-level execution context model
-   - there is no classification-scope enforcement for machine tokens
-   - there is no durable audit trail for guarded writes
-
-4. Tool coverage is incomplete.
+1. Tool coverage is still incomplete.
    - only a few read tools and one guarded write exist
    - the current UI can do much more than the machine interface can
 
-5. Approval-sensitive actions are not separated.
+2. Approval-sensitive actions still need tighter separation.
    - app-triggered email send is a customer-facing outbound action and should not be a normal guarded write for agents
 
 ## Non-Negotiable Rules
 
 1. Do not let tool handlers bypass `src/lib/services/partners.ts`.
-2. Do not keep `OW_PARTNERS_AGENT_TOKEN` as the real production machine-auth model.
+2. Do not reintroduce `OW_PARTNERS_AGENT_TOKEN` as the real production machine-auth model.
 3. Do not expose anonymous tool discovery or invocation.
 4. Do not turn this into a giant generic mutation endpoint.
 5. Do not invent a second “agent-only” business logic path.
@@ -150,13 +141,8 @@ Keep:
 - local session cookie
 - dev fallback for local development only
 
-Replace:
-
-- `OW_PARTNERS_AGENT_TOKEN`
-
-With:
-
 - `OW_AGENT_TOKEN_SECRET`
+- `OW_INTERNAL_SHARED_SECRET` for Hub and internal shell-context calls
 
 ### Required machine token shape
 
@@ -438,13 +424,10 @@ Document which choice was implemented.
 
 ## Environment Changes
 
-### Remove from the real auth path
-
-- `OW_PARTNERS_AGENT_TOKEN`
-
 ### Add
 
 - `OW_AGENT_TOKEN_SECRET`
+- `OW_INTERNAL_SHARED_SECRET`
 
 Keep:
 
@@ -511,7 +494,7 @@ The next Codex should ensure the tool surface maps cleanly onto existing UI capa
 The implementation is done when all of these are true:
 
 1. Partners accepts Hub-issued machine tokens with `aud: "partners"`.
-2. `OW_PARTNERS_AGENT_TOKEN` is no longer the real production machine-auth model.
+2. `OW_PARTNERS_AGENT_TOKEN` is not part of the real production machine-auth model.
 3. `GET /.well-known/ow-tools` requires auth and returns the expanded catalog.
 4. `GET /api/tools/[tool]` exists and returns metadata.
 5. `POST /api/tools/[tool]` uses shared runtime with correlation id, auth, and permission enforcement.

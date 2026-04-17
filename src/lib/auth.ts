@@ -192,6 +192,56 @@ async function getAgentContext(): Promise<PartnersRequestContext | null> {
   };
 }
 
+async function getShellContext(): Promise<{
+  context: PartnersRequestContext | null;
+  error?: string;
+}> {
+  const requestHeaders = await headers();
+  const userId = requestHeaders.get("x-ow-user-id")?.trim() ?? null;
+  const propertyId = requestHeaders.get("x-ow-property-id")?.trim() ?? null;
+  const role = normalizeRole(requestHeaders.get("x-ow-user-role")?.trim());
+  const userName = requestHeaders.get("x-ow-user-name")?.trim() || "Owl's Watch employee";
+
+  if (!userId && !propertyId && !role) {
+    return { context: null };
+  }
+
+  if (!userId || !propertyId || !role) {
+    return {
+      context: null,
+      error: "Incomplete Owl's Watch shell context",
+    };
+  }
+
+  const expectedSecret = process.env.OW_INTERNAL_SHARED_SECRET?.trim();
+  const providedSecret = requestHeaders.get("x-ow-internal-secret")?.trim();
+
+  if (expectedSecret) {
+    if (!providedSecret || providedSecret !== expectedSecret) {
+      return {
+        context: null,
+        error: "Invalid Owl's Watch shell secret",
+      };
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    return {
+      context: null,
+      error: "OW_INTERNAL_SHARED_SECRET is required in production",
+    };
+  }
+
+  return {
+    context: {
+      userId,
+      userName,
+      role,
+      propertyId,
+      source: "shell",
+      actorType: "human",
+    },
+  };
+}
+
 async function getDevContext(): Promise<PartnersRequestContext | null> {
   if (process.env.NODE_ENV === "production") return null;
 
@@ -213,20 +263,37 @@ export async function getPartnersRequestContext(): Promise<PartnersRequestContex
   const agentContext = await getAgentContext();
   if (agentContext) return agentContext;
 
+  const shell = await getShellContext();
+  if (shell.context) return shell.context;
+
   return getDevContext();
 }
 
 export async function authorizePartnersAccess(level: PartnersAccessLevel): Promise<AccessResult> {
-  const context = await getPartnersRequestContext();
-  if (!context) {
-    return { ok: false, status: 401, message: "Partners requires Owl's Watch employee or machine context" };
+  const cookieContext = await getCookieContext();
+  if (cookieContext) {
+    if (!hasRequiredAccess(cookieContext.role, level)) {
+      return { ok: false, status: 403, message: `This action requires ${ACCESS_MIN_ROLE[level]} access` };
+    }
+    return { ok: true, context: cookieContext };
   }
 
-  if (context.source === "agent") {
-    if (!hasRequiredAgentPermission(context.permissions, level)) {
+  const agentContext = await getAgentContext();
+  if (agentContext) {
+    if (!hasRequiredAgentPermission(agentContext.permissions, level)) {
       return { ok: false, status: 403, message: "This machine actor does not have enough Partners scope" };
     }
-    return { ok: true, context };
+    return { ok: true, context: agentContext };
+  }
+
+  const shell = await getShellContext();
+  if (shell.error) {
+    return { ok: false, status: 401, message: shell.error };
+  }
+
+  const context = shell.context ?? (await getDevContext());
+  if (!context) {
+    return { ok: false, status: 401, message: "Partners requires Owl's Watch employee or machine context" };
   }
 
   if (!hasRequiredAccess(context.role, level)) {

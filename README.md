@@ -52,6 +52,7 @@ The first implementation includes:
 
 - Hub handoff auth route at `/auth/handoff`
 - local Partners session handling
+- PMS-style shell-context auth for Hub and internal runtime callers
 - dashboard
 - organizations list and creation
 - organization detail with contacts, outreach touches, and follow-up tasks
@@ -69,6 +70,7 @@ The current app expects these variables:
 - `OW_PARTNERS_SESSION_SECRET`: local session signing secret
 - `OW_MODULE_HANDOFF_SECRET`: Hub-to-Partners handoff verification secret
 - `OW_AGENT_TOKEN_SECRET`: shared secret used to verify Hub-issued machine tokens for `aud: "partners"`
+- `OW_INTERNAL_SHARED_SECRET`: shared shell-context secret for Hub and internal runtime calls
 - `RESEND_API_KEY`: Resend API key for app-triggered email sends
 - `OW_PARTNERS_EMAIL_FROM`: verified sender, for example `info@owlswatch.com`
 - `OW_PARTNERS_EMAIL_REPLY_TO`: reply target, for example `info@owlswatch.com`
