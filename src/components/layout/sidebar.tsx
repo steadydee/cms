@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, FolderKanban, LayoutGrid, SquareCheckBig } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EnvironmentBadge } from "@/components/layout/environment-badge";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
@@ -16,11 +17,13 @@ export function Sidebar({
   userName,
   role,
   propertyId,
+  environment,
 }: {
   hubHref: string;
   userName: string;
   role: string;
   propertyId: string;
+  environment: string;
 }) {
   const pathname = usePathname();
   const userInitial = userName.trim().charAt(0).toUpperCase() || "U";
@@ -37,7 +40,10 @@ export function Sidebar({
         </span>
         <span className="min-w-0">
           <span className="block text-[14px] font-semibold text-white">Partners</span>
-          <span className="block text-[11px] text-sidebar-foreground/65">Outreach CRM</span>
+          <span className="mt-1 flex items-center gap-2">
+            <span className="block text-[11px] text-sidebar-foreground/65">Outreach CRM</span>
+            <EnvironmentBadge environment={environment} className="border-white/10 bg-white/10 text-white/85" />
+          </span>
         </span>
       </Link>
 
