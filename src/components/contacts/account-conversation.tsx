@@ -394,11 +394,16 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               </p>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Choose template</p>
+            </div>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {contact.emailTemplates.map((template) => (
                 <button
                   key={template.id}
                   type="button"
+                  aria-pressed={selectedTemplateId === template.id}
                   onClick={() => {
                     setSelectedTemplateId(template.id);
                     const recipientLabel = recipientOptions.find((entry) => entry.contactId === contactId)?.label.split(" · ")[0]
@@ -411,13 +416,13 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                       setActiveThreadId("");
                     }
                   }}
-                  className={`rounded-full px-3 py-1.5 text-[11px] font-medium ${
+                  className={`rounded-xl border px-4 py-3 text-left text-[12px] font-semibold shadow-sm transition active:scale-[0.99] ${
                     selectedTemplateId === template.id
-                      ? "bg-[#ebf3ed] text-[#3d6b4f]"
-                      : "bg-[#f5f1ea] text-[#6d614d]"
+                      ? "border-[#3d6b4f] bg-[#ebf3ed] text-[#2f5540] shadow-[0_0_0_1px_rgba(61,107,79,0.08)]"
+                      : "border-[#e8e0d4] bg-[#fcfaf7] text-[#5d5344] hover:border-[#d3c6b4] hover:bg-white"
                   }`}
                 >
-                  {template.name}
+                  <span className="block">{template.name}</span>
                 </button>
               ))}
             </div>
