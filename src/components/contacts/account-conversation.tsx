@@ -155,6 +155,10 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   const [body, setBody] = useState("");
 
   const activeThread = contact.emailThreads.find((thread) => thread.id === activeThreadId) ?? null;
+  const currentRecipientKey = recipientOptions.find((option) => {
+    const optionContactId = option.contactId ?? "";
+    return option.email.toLowerCase() === toEmail.toLowerCase() && optionContactId === contactId;
+  })?.key ?? "";
   const conversationReturnTo = `/contacts/${contact.id}`;
 
   function resetToTemplate(templateId?: string) {
@@ -414,7 +418,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               <div>
                 <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Saved recipient</label>
                 <select
-                  value={recipientOptions.find((option) => option.email === toEmail && option.contactId === contactId)?.key || ""}
+                  value={currentRecipientKey}
                   onChange={(event) => applyRecipient(event.target.value)}
                   className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
                 >
