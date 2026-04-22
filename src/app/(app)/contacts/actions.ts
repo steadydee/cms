@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { OutreachChannel, RelationshipStatus, TaskStatus, VisitStatus, type PartnerType } from "@prisma/client";
 import { authorizePartnersAccess, type PartnersRequestContext } from "@/lib/auth";
 import { setFlashMessage } from "@/lib/flash";
+import { sendAccountEmail, syncMailbox } from "@/lib/services/partner-email";
 import {
   addContact,
   addNote,
@@ -334,6 +335,31 @@ export async function sendTemplatedEmailAction(formData: FormData): Promise<Inli
       contactId: String(formData.get("contactId") ?? "") || undefined,
       recipientEmail: String(formData.get("recipientEmail") ?? ""),
       recipientLabel: String(formData.get("recipientLabel") ?? ""),
+      subject: String(formData.get("subject") ?? ""),
+      body: String(formData.get("body") ?? ""),
+    });
+    revalidateContactsSurface(organizationId);
+  });
+}
+
+export async function syncMailboxAction(formData: FormData): Promise<InlineActionResult> {
+  const organizationId = String(formData.get("organizationId") ?? "");
+
+  return withInlineWriteAccess(async (context) => {
+    await syncMailbox(context);
+    revalidateContactsSurface(organizationId);
+  });
+}
+
+export async function sendAccountEmailAction(formData: FormData): Promise<InlineActionResult> {
+  const organizationId = String(formData.get("organizationId") ?? "");
+
+  return withInlineWriteAccess(async (context) => {
+    await sendAccountEmail(context, {
+      organizationId,
+      contactId: String(formData.get("contactId") ?? "") || undefined,
+      threadId: String(formData.get("threadId") ?? "") || undefined,
+      toEmail: String(formData.get("toEmail") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
     });

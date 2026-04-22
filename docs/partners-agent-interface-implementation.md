@@ -20,6 +20,14 @@ Use `contact` only for the people inside an account.
 
 Research findings can remain available to the machine runtime and internal workflows, but they should no longer appear as a first-class human workspace in the browser UI.
 
+The human account detail should also expose the same outbound email state the runtime can eventually work with:
+
+- Gmail mailbox connection status
+- synced account email threads
+- first-class sent and received email records
+
+Do not keep account outreach email trapped in `mailto` helpers or one-line touch summaries.
+
 ## Source Standards
 
 Use these four Hub documents as the authoritative standard:

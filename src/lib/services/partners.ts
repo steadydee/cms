@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import type { PartnersRequestContext } from "@/lib/auth";
 import { sendEmailWithResend } from "@/lib/email";
 import { getContactStage, type ContactStage } from "@/lib/partners-ui";
+import { getMailboxStatus, listOrganizationEmailThreads } from "@/lib/services/partner-email";
 
 export type SavedOrganizationView =
   | "all"
@@ -746,9 +747,11 @@ export async function getContactDetailPage(id: string, propertyId: string) {
     return null;
   }
 
-  const [activityStream, emailTemplates] = await Promise.all([
+  const [activityStream, emailTemplates, mailbox, emailThreads] = await Promise.all([
     getActivityStream(id, propertyId),
     listEmailTemplates(propertyId),
+    getMailboxStatus(propertyId),
+    listOrganizationEmailThreads(id, propertyId),
   ]);
 
   const now = Date.now();
@@ -770,6 +773,8 @@ export async function getContactDetailPage(id: string, propertyId: string) {
     tagNames: organization.tags.map((entry) => entry.tag.name),
     activityStream,
     emailTemplates,
+    mailbox,
+    emailThreads,
   };
 }
 

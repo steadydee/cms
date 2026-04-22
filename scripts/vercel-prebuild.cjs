@@ -2,7 +2,7 @@
 const { spawnSync } = require("node:child_process");
 
 const BASELINE_MIGRATION = "20260413235500_add_tool_action_audits";
-const CURRENT_MIGRATION = "20260415013000_partners_v2_notes_tags_templates";
+const CURRENT_MIGRATION = "20260422093000_gmail_conversations";
 const CURRENT_MIGRATION_FILE = `prisma/migrations/${CURRENT_MIGRATION}/migration.sql`;
 const MIGRATE_LOCK_RETRIES = 4;
 const LOCK_RETRY_DELAY_MS = 5000;

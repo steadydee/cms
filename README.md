@@ -55,7 +55,7 @@ The first implementation includes:
 - PMS-style shell-context auth for Hub and internal runtime callers
 - dashboard
 - organizations list and creation
-- organization detail with contacts, outreach touches, and follow-up tasks
+- organization detail with contacts, Gmail-backed email conversations, outreach touches, and follow-up tasks
 - follow-up queue
 - tool discovery at `/.well-known/ow-tools`
 - PMS-style machine-token auth through Hub-issued agent tokens
@@ -71,15 +71,33 @@ The current app expects these variables:
 - `OW_MODULE_HANDOFF_SECRET`: Hub-to-Partners handoff verification secret
 - `OW_AGENT_TOKEN_SECRET`: shared secret used to verify Hub-issued machine tokens for `aud: "partners"`
 - `OW_INTERNAL_SHARED_SECRET`: shared shell-context secret for Hub and internal runtime calls
-- `RESEND_API_KEY`: Resend API key for app-triggered email sends
-- `OW_PARTNERS_EMAIL_FROM`: verified sender, for example `info@owlswatch.com`
-- `OW_PARTNERS_EMAIL_REPLY_TO`: reply target, for example `info@owlswatch.com`
+- `GOOGLE_CLIENT_ID`: Google OAuth client id for Gmail connection
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret for Gmail connection
+- `OW_PARTNERS_GMAIL_TOKEN_SECRET`: encryption/signing secret for stored Gmail refresh tokens and OAuth state
+- `RESEND_API_KEY`: optional, only for legacy or future broadcast/system sends
+- `OW_PARTNERS_EMAIL_FROM`: optional legacy sender, for example `info@owlswatch.com`
+- `OW_PARTNERS_EMAIL_REPLY_TO`: optional legacy reply target, for example `info@owlswatch.com`
 
-Recommended email setup:
+Recommended account email setup:
 
-- use Resend to send from `OW_PARTNERS_EMAIL_FROM`
-- route replies back to the Owl's Watch inbox through `OW_PARTNERS_EMAIL_REPLY_TO`
-- if both should be the same inbox, set both to `info@owlswatch.com`
+- register Google OAuth redirect URIs for each Partners origin using `/auth/gmail/callback`
+- connect the working Owl's Watch Gmail inbox from an account detail page
+- use `Sync inbox` to mirror recent replies and external sent mail into Partners
+
+Legacy or optional email setup:
+
+- keep Resend only for future broadcast or system mail
+- do not use Resend as the primary send path for account-level relationship outreach
+
+## Gmail Conversation Workspace
+
+Each account detail page now includes a Gmail-backed `Conversation` workspace:
+
+- send 1:1 outreach directly through Gmail
+- sync replies and external sent mail back into the account
+- keep templates, manual call/WhatsApp logs, notes, and tasks in the same workspace
+
+Implementation details are documented in [Partners Email Workspace](./docs/partners-email-workspace.md).
 
 ## Recommended MVP
 

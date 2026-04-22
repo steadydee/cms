@@ -18,7 +18,6 @@ import {
 import type { RelationshipStatus, VisitStatus } from "@prisma/client";
 import {
   archiveContactAction,
-  logTemplatedEmailAction,
   saveContactFieldAction,
   saveContactNoteAction,
   saveContactPersonAction,
@@ -26,12 +25,12 @@ import {
   saveContactTagAction,
   saveOutreachTouchAction,
   saveTaskAction,
-  sendTemplatedEmailAction,
   setTaskStatusAction,
   removeContactTagAction,
 } from "@/app/(app)/contacts/actions";
 import { CONTACT_STAGE_META, getStatusDisplayLabel } from "@/lib/partners-ui";
 import type { getContactDetailPage } from "@/lib/services/partners";
+import { AccountConversation } from "@/components/contacts/account-conversation";
 
 type ContactDetailData = NonNullable<Awaited<ReturnType<typeof getContactDetailPage>>>;
 
@@ -91,13 +90,6 @@ function timeAgo(date: Date) {
   return `${months}mo ago`;
 }
 
-function mergeTemplate(body: string, subject: string, company: string, name: string) {
-  return {
-    subject: subject.replaceAll("{company}", company).replaceAll("{name}", name),
-    body: body.replaceAll("{company}", company).replaceAll("{name}", name),
-  };
-}
-
 function StatusNotice({ state }: { state: SaveState }) {
   if (state.kind === "idle" || !state.message) return null;
 
@@ -138,24 +130,11 @@ function StreamBadge({ type }: { type: ContactDetailData["activityStream"][numbe
 
 export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetailProps) {
   const router = useRouter();
-  const defaultTemplate = contact.emailTemplates[0] ?? null;
-  const defaultMergedTemplate = defaultTemplate
-    ? mergeTemplate(
-        defaultTemplate.body,
-        defaultTemplate.subject,
-        contact.name,
-        contact.primaryContact?.fullName || contact.name
-      )
-    : { subject: "", body: "" };
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [isPending, startTransition] = useTransition();
   const [noteText, setNoteText] = useState("");
-  const [logType, setLogType] = useState<"email" | "phone" | "whatsapp" | "meeting" | null>(null);
+  const [logType, setLogType] = useState<"phone" | "whatsapp" | "meeting" | null>(null);
   const [logText, setLogText] = useState("");
-  const [showCompose, setShowCompose] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(defaultTemplate?.id ?? null);
-  const [composeSubject, setComposeSubject] = useState(defaultMergedTemplate.subject);
-  const [composeBody, setComposeBody] = useState(defaultMergedTemplate.body);
   const [showResearch, setShowResearch] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
@@ -182,10 +161,6 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
       router.refresh();
     });
   }
-
-  const mailtoHref = contact.primaryContact?.email || contact.email
-    ? `mailto:${encodeURIComponent(contact.primaryContact?.email || contact.email || "")}?subject=${encodeURIComponent(composeSubject)}&body=${encodeURIComponent(composeBody)}`
-    : null;
 
   return (
     <div className="space-y-6">
@@ -292,13 +267,13 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
           </div>
 
+          <AccountConversation contact={contact} />
+
           <div className="rounded-[20px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
             <div className="flex flex-wrap gap-2">
-              <ActionButton icon={Mail} label="Compose" onClick={() => { setShowCompose(true); setLogType(null); }} />
-              <ActionButton icon={MessageSquareText} label="Log email" onClick={() => { setLogType("email"); setShowCompose(false); }} />
-              <ActionButton icon={Phone} label="Call" onClick={() => { setLogType("phone"); setShowCompose(false); }} />
-              <ActionButton icon={MessageSquareText} label="WhatsApp" onClick={() => { setLogType("whatsapp"); setShowCompose(false); }} />
-              <ActionButton icon={UserRound} label="Visit" onClick={() => { setLogType("meeting"); setShowCompose(false); }} />
+              <ActionButton icon={Phone} label="Call" onClick={() => setLogType("phone")} />
+              <ActionButton icon={MessageSquareText} label="WhatsApp" onClick={() => setLogType("whatsapp")} />
+              <ActionButton icon={UserRound} label="Visit" onClick={() => setLogType("meeting")} />
             </div>
 
             {logType ? (
@@ -332,101 +307,6 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 >
                   Save touch
                 </button>
-              </div>
-            ) : null}
-
-            {showCompose ? (
-              <div className="mt-4 rounded-xl border border-[#e8e0d4] bg-[#fdfaf6] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[13px] font-medium text-[#2c2416]">Compose email</p>
-                  <button type="button" className="text-[12px] text-[#8c7e6a]" onClick={() => setShowCompose(false)}>
-                    Close
-                  </button>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {contact.emailTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedTemplateId(template.id);
-                        const merged = mergeTemplate(
-                          template.body,
-                          template.subject,
-                          contact.name,
-                          contact.primaryContact?.fullName || contact.name
-                        );
-                        setComposeSubject(merged.subject);
-                        setComposeBody(merged.body);
-                      }}
-                      className={`rounded-full px-3 py-1.5 text-[11px] font-medium ${
-                        selectedTemplateId === template.id
-                          ? "bg-[#ebf3ed] text-[#3d6b4f]"
-                          : "bg-white text-[#6d614d] ring-1 ring-[#e8e0d4]"
-                      }`}
-                    >
-                      {template.name}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  value={composeSubject}
-                  onChange={(event) => setComposeSubject(event.target.value)}
-                  className={`${fieldClassName} mt-4`}
-                />
-                <textarea
-                  value={composeBody}
-                  onChange={(event) => setComposeBody(event.target.value)}
-                  className="mt-3 min-h-[180px] w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
-                />
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {mailtoHref ? (
-                    <a
-                      href={mailtoHref}
-                      className="rounded-lg bg-[#3d6b4f] px-4 py-2 text-[13px] font-medium text-white"
-                    >
-                      Open in email app
-                    </a>
-                  ) : (
-                    <button type="button" disabled className="rounded-lg bg-[#d5d0c6] px-4 py-2 text-[13px] font-medium text-white">
-                      Open in email app
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => {
-                      const formData = new FormData();
-                      formData.set("organizationId", contact.id);
-                      formData.set("subject", composeSubject);
-                      formData.set("recipientLabel", contact.primaryContact?.fullName || contact.name);
-                      if (contact.primaryContact?.id) formData.set("contactId", contact.primaryContact.id);
-                      runAction(logTemplatedEmailAction, formData, "Email logged as sent.");
-                    }}
-                    className="rounded-lg border border-[#2c2416] px-4 py-2 text-[13px] font-medium text-[#2c2416]"
-                  >
-                    Log as sent
-                  </button>
-                  {contact.primaryContact?.email || contact.email ? (
-                    <button
-                      type="button"
-                      disabled={isPending}
-                      onClick={() => {
-                        const formData = new FormData();
-                        formData.set("organizationId", contact.id);
-                        formData.set("subject", composeSubject);
-                        formData.set("body", composeBody);
-                        formData.set("recipientEmail", contact.primaryContact?.email || contact.email || "");
-                        formData.set("recipientLabel", contact.primaryContact?.fullName || contact.name);
-                        if (contact.primaryContact?.id) formData.set("contactId", contact.primaryContact.id);
-                        runAction(sendTemplatedEmailAction, formData, "Email sent with Resend.");
-                      }}
-                      className="rounded-lg border border-[#c4713b] px-4 py-2 text-[13px] font-medium text-[#c4713b]"
-                    >
-                      Send with Resend
-                    </button>
-                  ) : null}
-                </div>
               </div>
             ) : null}
           </div>

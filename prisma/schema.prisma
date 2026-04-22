@@ -49,6 +49,21 @@ enum TouchDirection {
   inbound
 }
 
+enum MailboxProvider {
+  gmail
+}
+
+enum EmailDirection {
+  outbound
+  inbound
+}
+
+enum EmailMatchSource {
+  thread_id
+  participant_email
+  manual
+}
+
 enum TaskStatus {
   open
   done
@@ -103,6 +118,8 @@ model PartnerOrganization {
   notes           Note[]
   tags            TagOnContact[]
   researchFindings ResearchFinding[]
+  emailThreads    EmailThread[]
+  emailMessages   EmailMessage[]
 
   @@index([propertyId, status])
   @@index([propertyId, visitStatus])
@@ -191,8 +208,88 @@ model PartnerContact {
   organization    PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   touches         OutreachTouch[]
   tasks           FollowUpTask[]
+  emailThreads    EmailThread[]
+  emailMessages   EmailMessage[]
 
   @@index([organizationId])
+}
+
+model MailboxConnection {
+  id                   String          @id @default(cuid())
+  propertyId           String          @unique
+  provider             MailboxProvider @default(gmail)
+  emailAddress         String
+  displayName          String?
+  refreshTokenEncrypted String
+  scope                String?
+  historyId            String?
+  labelId              String?
+  labelName            String?
+  lastSyncedAt         DateTime?
+  lastSyncError        String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  emailThreads         EmailThread[]
+  emailMessages        EmailMessage[]
+
+  @@index([propertyId, provider])
+}
+
+model EmailThread {
+  id                  String              @id @default(cuid())
+  mailboxConnectionId String
+  organizationId      String
+  contactId           String?
+  providerThreadId    String
+  subject             String?
+  snippet             String?
+  participantEmails   Json?
+  lastMessageAt       DateTime
+  lastInboundAt       DateTime?
+  lastOutboundAt      DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  mailboxConnection   MailboxConnection   @relation(fields: [mailboxConnectionId], references: [id], onDelete: Cascade)
+  organization        PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact             PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  messages            EmailMessage[]
+
+  @@unique([mailboxConnectionId, providerThreadId])
+  @@index([organizationId, lastMessageAt])
+  @@index([contactId, lastMessageAt])
+}
+
+model EmailMessage {
+  id                  String              @id @default(cuid())
+  mailboxConnectionId String
+  emailThreadId       String
+  organizationId      String
+  contactId           String?
+  providerMessageId   String
+  internetMessageId   String?
+  direction           EmailDirection
+  subject             String?
+  snippet             String?
+  bodyText            String
+  bodyHtml            String?
+  fromEmail           String?
+  fromName            String?
+  toEmails            Json?
+  ccEmails            Json?
+  sentAt              DateTime
+  syncedAt            DateTime            @default(now())
+  matchSource         EmailMatchSource?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  mailboxConnection   MailboxConnection   @relation(fields: [mailboxConnectionId], references: [id], onDelete: Cascade)
+  emailThread         EmailThread         @relation(fields: [emailThreadId], references: [id], onDelete: Cascade)
+  organization        PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact             PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([mailboxConnectionId, providerMessageId])
+  @@index([organizationId, sentAt])
+  @@index([contactId, sentAt])
+  @@index([emailThreadId, sentAt])
 }
 
 model OutreachTouch {
