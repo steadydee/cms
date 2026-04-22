@@ -80,7 +80,7 @@ The current app expects these variables:
 
 Recommended account email setup:
 
-- register Google OAuth redirect URIs for each Partners origin using `/auth/gmail/callback`
+- register Google OAuth redirect URIs for each Partners origin using `/api/auth/gmail/callback`
 - connect the working Owl's Watch Gmail inbox from an account detail page
 - use `Sync inbox` to mirror recent replies and external sent mail into Partners
 

@@ -10,6 +10,7 @@ import {
 } from "node:crypto";
 
 export const GMAIL_SYNC_LABEL = "Owls Watch / Partners";
+const DEFAULT_GMAIL_CALLBACK_PATH = "/api/auth/gmail/callback";
 
 type GmailClientConfig = {
   clientId: string;
@@ -166,6 +167,16 @@ export function isGmailConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
 }
 
+export function getGmailCallbackPath() {
+  const value = process.env.OW_PARTNERS_GMAIL_CALLBACK_PATH?.trim();
+  if (!value) return DEFAULT_GMAIL_CALLBACK_PATH;
+  return value.startsWith("/") ? value : `/${value}`;
+}
+
+export function getGmailOAuthRedirectUri(origin: string) {
+  return `${origin}${getGmailCallbackPath()}`;
+}
+
 export function getGmailClientConfig(): GmailClientConfig {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
@@ -257,7 +268,7 @@ export function buildGmailConnectUrl(input: {
   const { clientId } = getGmailClientConfig();
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: `${input.origin}/auth/gmail/callback`,
+    redirect_uri: getGmailOAuthRedirectUri(input.origin),
     response_type: "code",
     access_type: "offline",
     prompt: "consent",
@@ -282,7 +293,7 @@ export async function exchangeGmailCode(input: {
     code: input.code,
     client_id: clientId,
     client_secret: clientSecret,
-    redirect_uri: `${input.origin}/auth/gmail/callback`,
+    redirect_uri: getGmailOAuthRedirectUri(input.origin),
     grant_type: "authorization_code",
   });
 

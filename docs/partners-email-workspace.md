@@ -102,7 +102,7 @@ Unmatched messages are skipped for now rather than creating an inbox queue.
 
 Google OAuth redirect URIs must include:
 
-- local: `http://localhost:3002/auth/gmail/callback`
-- production: `https://partners-six-gamma.vercel.app/auth/gmail/callback`
+- local: `http://localhost:3002/api/auth/gmail/callback`
+- production: `https://partners-six-gamma.vercel.app/api/auth/gmail/callback`
 
 Add any additional test/staging origins that need Gmail connection.
