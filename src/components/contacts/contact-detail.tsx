@@ -60,6 +60,15 @@ type SaveState = {
   message?: string;
 };
 
+type AccountDetailsValues = {
+  email: string;
+  phone: string;
+  whatsapp: string;
+  website: string;
+  city: string;
+  country: string;
+};
+
 function buildDateTimeLocalValue(date: Date | null | undefined) {
   if (!date) return "";
 
@@ -162,6 +171,36 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
     });
   }
 
+  function saveAccountDetails(values: AccountDetailsValues) {
+    startTransition(async () => {
+      const currentValues: AccountDetailsValues = {
+        email: contact.email || "",
+        phone: contact.phone || "",
+        whatsapp: contact.whatsapp || "",
+        website: contact.website || "",
+        city: contact.city || "",
+        country: contact.country || "",
+      };
+
+      const changedEntries = Object.entries(values).filter(([key, value]) => currentValues[key as keyof AccountDetailsValues] !== value);
+
+      for (const [field, value] of changedEntries) {
+        const formData = new FormData();
+        formData.set("organizationId", contact.id);
+        formData.set("field", field);
+        formData.set("value", value);
+        const result = await saveContactFieldAction(formData);
+        if (!result.ok) {
+          setSaveState({ kind: "error", message: result.error || "Save failed." });
+          return;
+        }
+      }
+
+      setSaveState({ kind: "success", message: changedEntries.length ? "Account details updated." : "No changes to save." });
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-6">
       <StatusNotice state={saveState} />
@@ -179,84 +218,18 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 : "No primary person yet"}
               {(contact.city || contact.country) ? ` · ${[contact.city, contact.country].filter(Boolean).join(", ")}` : ""}
             </p>
-            <div className="mt-4 max-w-[760px] space-y-2">
-              <CompactEditableField
-                key={`email:${contact.email ?? ""}`}
-                icon={Mail}
-                label="Email"
-                initialValue={contact.email || ""}
-                onSave={(value) => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("field", "email");
-                  formData.set("value", value);
-                  return runAction(saveContactFieldAction, formData, "Email updated.");
+            <div className="mt-4 max-w-[900px]">
+              <AccountDetailsPanel
+                values={{
+                  email: contact.email || "",
+                  phone: contact.phone || "",
+                  whatsapp: contact.whatsapp || "",
+                  website: contact.website || "",
+                  city: contact.city || "",
+                  country: contact.country || "",
                 }}
-              />
-              <CompactEditableField
-                key={`phone:${contact.phone ?? ""}`}
-                icon={Phone}
-                label="Phone"
-                initialValue={contact.phone || ""}
-                onSave={(value) => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("field", "phone");
-                  formData.set("value", value);
-                  return runAction(saveContactFieldAction, formData, "Phone updated.");
-                }}
-              />
-              <CompactEditableField
-                key={`whatsapp:${contact.whatsapp ?? ""}`}
-                icon={MessageSquareText}
-                label="WhatsApp"
-                initialValue={contact.whatsapp || ""}
-                onSave={(value) => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("field", "whatsapp");
-                  formData.set("value", value);
-                  return runAction(saveContactFieldAction, formData, "WhatsApp updated.");
-                }}
-              />
-              <CompactEditableField
-                key={`website:${contact.website ?? ""}`}
-                icon={TagIcon}
-                label="Website"
-                initialValue={contact.website || ""}
-                onSave={(value) => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("field", "website");
-                  formData.set("value", value);
-                  return runAction(saveContactFieldAction, formData, "Website updated.");
-                }}
-              />
-              <CompactEditableField
-                key={`city:${contact.city ?? ""}`}
-                icon={UserRound}
-                label="City"
-                initialValue={contact.city || ""}
-                onSave={(value) => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("field", "city");
-                  formData.set("value", value);
-                  return runAction(saveContactFieldAction, formData, "City updated.");
-                }}
-              />
-              <CompactEditableField
-                key={`country:${contact.country ?? ""}`}
-                icon={UserRound}
-                label="Country"
-                initialValue={contact.country || ""}
-                onSave={(value) => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("field", "country");
-                  formData.set("value", value);
-                  return runAction(saveContactFieldAction, formData, "Country updated.");
-                }}
+                disabled={isPending}
+                onSave={saveAccountDetails}
               />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -824,86 +797,86 @@ function EditableField({
   );
 }
 
-function CompactEditableField({
-  icon: Icon,
-  label,
-  initialValue,
-  placeholder = "Add...",
+function AccountDetailsPanel({
+  values,
+  disabled,
   onSave,
 }: {
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  initialValue: string;
-  placeholder?: string;
-  onSave: (value: string) => void;
+  values: AccountDetailsValues;
+  disabled?: boolean;
+  onSave: (values: AccountDetailsValues) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(initialValue);
+  const [draft, setDraft] = useState(values);
+
+  const fields: Array<{ key: keyof AccountDetailsValues; label: string; icon: ComponentType<{ className?: string }> }> = [
+    { key: "email", label: "Email", icon: Mail },
+    { key: "phone", label: "Phone", icon: Phone },
+    { key: "whatsapp", label: "WhatsApp", icon: MessageSquareText },
+    { key: "website", label: "Website", icon: TagIcon },
+    { key: "city", label: "City", icon: UserRound },
+    { key: "country", label: "Country", icon: UserRound },
+  ];
 
   return (
-    <div className="rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] px-3 py-2.5">
-      {!editing ? (
-        <div className="flex items-center gap-3">
-          <div className="flex min-w-[132px] items-center gap-2">
-            <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+    <div className="rounded-2xl border border-[#d8ccb9] bg-[#fdfaf6] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Account details</p>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={disabled}
+              className="rounded-md bg-[#2c2416] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
+              onClick={() => {
+                setEditing(false);
+                onSave(draft);
+              }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              disabled={disabled}
+              className="rounded-md border border-[#d8ccb9] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6d614d] disabled:opacity-50"
+              onClick={() => {
+                setDraft(values);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </button>
           </div>
-          <div className="min-w-0 flex-1 truncate text-[13px] text-[#2c2416]">
-            {value || <span className="text-[#aa9c87]">{placeholder}</span>}
-          </div>
+        ) : (
           <button
             type="button"
-            className="shrink-0 rounded-md border border-[#d8ccb9] bg-white px-2 py-1 text-[10px] font-medium text-[#6d614d]"
+            className="rounded-md border border-[#d8ccb9] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6d614d]"
             onClick={() => setEditing(true)}
           >
             Edit
           </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex min-w-[132px] items-center gap-2">
-            <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
-          </div>
-          <input
-            autoFocus
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setEditing(false);
-                void onSave(value);
-              }
+        )}
+      </div>
 
-              if (event.key === "Escape") {
-                setValue(initialValue);
-                setEditing(false);
-              }
-            }}
-            className="min-w-[220px] flex-1 rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[12px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
-          />
-          <button
-            type="button"
-            className="rounded-md bg-[#2c2416] px-2.5 py-1.5 text-[10px] font-medium text-white"
-            onClick={() => {
-              setEditing(false);
-              void onSave(value);
-            }}
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-[#d8ccb9] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#6d614d]"
-            onClick={() => {
-              setValue(initialValue);
-              setEditing(false);
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+      <div className="mt-4 grid gap-x-5 gap-y-3 md:grid-cols-2">
+        {fields.map(({ key, label, icon: Icon }) => (
+          <div key={key} className="rounded-xl border border-[#d8ccb9] bg-white/70 px-3 py-3">
+            <div className="flex items-center gap-2">
+              <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+            </div>
+            {editing ? (
+              <input
+                value={draft[key]}
+                onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
+                className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+              />
+            ) : (
+              <p className="mt-2 text-[14px] text-[#2c2416]">{values[key] || <span className="text-[#aa9c87]">Add...</span>}</p>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
