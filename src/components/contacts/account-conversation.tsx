@@ -360,7 +360,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
         <div className="space-y-5">
           {activeThread ? (
             <div className="overflow-hidden rounded-2xl border border-[#d7cab7] bg-white">
-              <div className="divide-y divide-[#d7cab7]">
+              <div className="max-h-[520px] overflow-y-auto divide-y divide-[#d7cab7]">
                 {activeThread.messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
