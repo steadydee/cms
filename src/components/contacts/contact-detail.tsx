@@ -297,7 +297,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   setNoteText("");
                 }
               }}
-              placeholder="Add an internal note... (⌘+Enter to save)"
+              placeholder="Add an internal note..."
               className="min-h-[96px] w-full rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] px-4 py-3 text-[14px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
