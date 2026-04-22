@@ -232,6 +232,94 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 onSave={saveAccountDetails}
               />
             </div>
+            <div className="mt-5 space-y-5">
+              <CardSection title={`People (${contact.contacts.length})`}>
+                <div className="space-y-3">
+                  {contact.contacts.map((person) => (
+                    <div key={person.id} className="rounded-xl border border-[#d7cab7] bg-[#fffdfa] p-3">
+                      {editingPerson === person.id ? (
+                        <PersonEditor
+                          initialPerson={person}
+                          disabled={isPending}
+                          onSubmit={(values) => {
+                            const formData = new FormData();
+                            formData.set("organizationId", contact.id);
+                            formData.set("contactId", person.id);
+                            Object.entries(values).forEach(([key, value]) => {
+                              formData.set(key, typeof value === "boolean" ? (value ? "on" : "") : value);
+                            });
+                            return runAction(saveContactPersonAction, formData, "Person updated.");
+                          }}
+                          onClose={() => setEditingPerson(null)}
+                        />
+                      ) : (
+                        <button type="button" className="w-full text-left" onClick={() => setEditingPerson(person.id)}>
+                          <div className="text-[13px] font-semibold text-[#2c2416]">
+                            {person.fullName}
+                            {person.isPrimary ? (
+                              <span className="ml-2 rounded-full bg-[#ebf3ed] px-2 py-0.5 text-[10px] font-medium text-[#3d6b4f]">
+                                primary
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-[12px] text-[#8c7e6a]">{person.roleTitle || "No role title"}</p>
+                          {person.email ? <p className="mt-1 text-[12px] text-[#2d6fa0]">{person.email}</p> : null}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {showAddPerson ? (
+                  <div className="mt-3 rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] p-3">
+                    <PersonEditor
+                      disabled={isPending}
+                      onSubmit={(values) => {
+                        const formData = new FormData();
+                        formData.set("organizationId", contact.id);
+                        Object.entries(values).forEach(([key, value]) => {
+                          formData.set(key, typeof value === "boolean" ? (value ? "on" : "") : value);
+                        });
+                        return runAction(saveContactPersonAction, formData, "Person added.");
+                      }}
+                      onClose={() => setShowAddPerson(false)}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPerson(true)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#c8baaa] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add person
+                  </button>
+                )}
+              </CardSection>
+
+              <CardSection title="Stage">
+                <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Relationship status</label>
+                <select
+                  value={statusValue}
+                  onChange={(event) => {
+                    const value = event.target.value as RelationshipStatus;
+                    setStatusValue(value);
+                    const formData = new FormData();
+                    formData.set("organizationId", contact.id);
+                    formData.set("status", value);
+                    formData.set("visitStatus", visitStatusValue);
+                    runAction(saveContactStageAction, formData, "Stage updated.");
+                  }}
+                  className={`${fieldClassName} mt-2`}
+                >
+                  {relationshipStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {getStatusDisplayLabel(status)}
+                    </option>
+                  ))}
+                </select>
+              </CardSection>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StageBadge stage={contact.displayStage} />
               {contact.tags.map((entry) => (
@@ -395,93 +483,6 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
         </section>
 
         <aside className="space-y-5">
-          <CardSection title={`People (${contact.contacts.length})`}>
-            <div className="space-y-3">
-              {contact.contacts.map((person) => (
-                <div key={person.id} className="rounded-xl border border-[#d7cab7] bg-[#fffdfa] p-3">
-                  {editingPerson === person.id ? (
-                    <PersonEditor
-                      initialPerson={person}
-                      disabled={isPending}
-                      onSubmit={(values) => {
-                        const formData = new FormData();
-                        formData.set("organizationId", contact.id);
-                        formData.set("contactId", person.id);
-                        Object.entries(values).forEach(([key, value]) => {
-                          formData.set(key, typeof value === "boolean" ? (value ? "on" : "") : value);
-                        });
-                        return runAction(saveContactPersonAction, formData, "Person updated.");
-                      }}
-                      onClose={() => setEditingPerson(null)}
-                    />
-                  ) : (
-                    <button type="button" className="w-full text-left" onClick={() => setEditingPerson(person.id)}>
-                      <div className="text-[13px] font-semibold text-[#2c2416]">
-                        {person.fullName}
-                        {person.isPrimary ? (
-                          <span className="ml-2 rounded-full bg-[#ebf3ed] px-2 py-0.5 text-[10px] font-medium text-[#3d6b4f]">
-                            primary
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-1 text-[12px] text-[#8c7e6a]">{person.roleTitle || "No role title"}</p>
-                      {person.email ? <p className="mt-1 text-[12px] text-[#2d6fa0]">{person.email}</p> : null}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {showAddPerson ? (
-              <div className="mt-3 rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] p-3">
-                <PersonEditor
-                  disabled={isPending}
-                  onSubmit={(values) => {
-                    const formData = new FormData();
-                    formData.set("organizationId", contact.id);
-                    Object.entries(values).forEach(([key, value]) => {
-                      formData.set(key, typeof value === "boolean" ? (value ? "on" : "") : value);
-                    });
-                    return runAction(saveContactPersonAction, formData, "Person added.");
-                  }}
-                  onClose={() => setShowAddPerson(false)}
-                />
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowAddPerson(true)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#c8baaa] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
-              >
-                <Plus className="h-4 w-4" />
-                Add person
-              </button>
-            )}
-          </CardSection>
-
-          <CardSection title="Stage">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Relationship status</label>
-            <select
-              value={statusValue}
-              onChange={(event) => {
-                const value = event.target.value as RelationshipStatus;
-                setStatusValue(value);
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("status", value);
-                formData.set("visitStatus", visitStatusValue);
-                runAction(saveContactStageAction, formData, "Stage updated.");
-              }}
-              className={`${fieldClassName} mt-2`}
-            >
-              {relationshipStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {getStatusDisplayLabel(status)}
-                </option>
-              ))}
-            </select>
-          </CardSection>
-
           <CardSection title="Tags">
             <div className="flex flex-wrap gap-2">
               {contact.tags.map((entry) => (
