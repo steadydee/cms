@@ -362,20 +362,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
 
         <div className="space-y-5">
           {activeThread ? (
-            <div className="rounded-2xl border border-[#ebe3d8] bg-[#fcfaf7] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Active thread</p>
-                  <h3 className="mt-2 text-[18px] font-semibold text-[#2c2416]">
-                    {activeThread.subject || "Untitled thread"}
-                  </h3>
-                </div>
-                <p className="text-[12px] text-[#8c7e6a]">
-                  {activeThread.messages.length} messages
-                </p>
-              </div>
-
-              <div className="mt-4 divide-y divide-[#ebe3d8] overflow-hidden rounded-xl border border-[#ebe3d8] bg-white">
+            <div className="overflow-hidden rounded-2xl border border-[#ebe3d8] bg-white">
+              <div className="divide-y divide-[#ebe3d8]">
                 {activeThread.messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
