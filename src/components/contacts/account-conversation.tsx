@@ -373,36 +373,41 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             </div>
 
             <div className="mt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Choose template</p>
-            </div>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Template</label>
+              <select
+                value={selectedTemplateId}
+                onChange={(event) => {
+                  const nextTemplateId = event.target.value;
+                  setSelectedTemplateId(nextTemplateId);
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {contact.emailTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  aria-pressed={selectedTemplateId === template.id}
-                  onClick={() => {
-                    setSelectedTemplateId(template.id);
-                    const recipientLabel = recipientOptions.find((entry) => entry.contactId === contactId)?.label.split(" · ")[0]
-                      || defaultRecipient?.label.split(" · ")[0]
-                      || contact.name;
-                    const merged = mergeTemplate(template.body, template.subject, contact.name, recipientLabel);
-                    setSubject(merged.subject);
-                    setBody(merged.body);
-                    if (!activeThread) {
-                      setActiveThreadId("");
-                    }
-                  }}
-                  className={`rounded-xl border px-4 py-3 text-left text-[12px] font-semibold shadow-sm transition active:scale-[0.99] ${
-                    selectedTemplateId === template.id
-                      ? "border-[#3d6b4f] bg-[#ebf3ed] text-[#2f5540] shadow-[0_0_0_1px_rgba(61,107,79,0.08)]"
-                      : "border-[#d8ccb9] bg-[#fcfaf7] text-[#5d5344] hover:border-[#c2b29f] hover:bg-white"
-                  }`}
-                >
-                  <span className="block">{template.name}</span>
-                </button>
-              ))}
+                  if (!nextTemplateId) {
+                    return;
+                  }
+
+                  const template = contact.emailTemplates.find((entry) => entry.id === nextTemplateId);
+                  if (!template) {
+                    return;
+                  }
+
+                  const recipientLabel = recipientOptions.find((entry) => entry.contactId === contactId)?.label.split(" · ")[0]
+                    || defaultRecipient?.label.split(" · ")[0]
+                    || contact.name;
+                  const merged = mergeTemplate(template.body, template.subject, contact.name, recipientLabel);
+                  setSubject(merged.subject);
+                  setBody(merged.body);
+                  if (!activeThread) {
+                    setActiveThreadId("");
+                  }
+                }}
+                className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+              >
+                <option value="">No template</option>
+                {contact.emailTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
