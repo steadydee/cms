@@ -69,11 +69,11 @@ type AccountDetailsValues = {
   country: string;
 };
 
-function buildDateTimeLocalValue(date: Date | null | undefined) {
+function buildDateInputValue(date: Date | null | undefined) {
   if (!date) return "";
 
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+  return local.toISOString().slice(0, 10);
 }
 
 function formatShortDate(date: Date | null | undefined) {
@@ -250,7 +250,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   {contact.nextActionTask?.title || "No next action set"}
                 </p>
                 <p className="mt-1 text-[12px] text-[#a15d35]">
-                  {contact.nextActionTask?.dueAt ? `Due ${formatDateTime(contact.nextActionTask.dueAt)}` : "Add a task to keep this visible"}
+                  {contact.nextActionTask?.dueAt ? `Due ${formatShortDate(contact.nextActionTask.dueAt)}` : "Add a task to keep this visible"}
                 </p>
               </div>
               <button
@@ -265,7 +265,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             {nextActionMode ? (
               <TaskEditor
                 initialTitle={contact.nextActionTask?.title || ""}
-                initialDueAt={buildDateTimeLocalValue(contact.nextActionTask?.dueAt)}
+                initialDueAt={buildDateInputValue(contact.nextActionTask?.dueAt)}
                 submitLabel={contact.nextActionTask ? "Save next action" : "Create next action"}
                 onSubmit={(title, dueAt) => {
                   const formData = new FormData();
@@ -545,7 +545,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                       {editingTask === task.id ? (
                         <TaskEditor
                           initialTitle={task.title}
-                          initialDueAt={buildDateTimeLocalValue(task.dueAt)}
+                          initialDueAt={buildDateInputValue(task.dueAt)}
                           submitLabel="Save task"
                           onSubmit={(title, dueAt) => {
                             const formData = new FormData();
@@ -966,7 +966,7 @@ function TaskEditor({
   return (
     <div className="mt-3 space-y-2">
       <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Task title" className={fieldClassName} />
-      <input value={dueAt} onChange={(event) => setDueAt(event.target.value)} type="datetime-local" className={fieldClassName} />
+      <input value={dueAt} onChange={(event) => setDueAt(event.target.value)} type="date" className={fieldClassName} />
       <div className="flex gap-2">
         <button
           type="button"

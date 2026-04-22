@@ -138,6 +138,17 @@ function getActorType(context: PartnersRequestContext): "human" | "agent" {
   return context.source === "agent" ? "agent" : "human";
 }
 
+function parseTaskDueAt(input: string) {
+  const value = input.trim();
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+  }
+
+  return new Date(value);
+}
+
 function normalizeExtractedDataJson(value: unknown): Prisma.InputJsonValue | undefined {
   if (value === undefined) return undefined;
   if (value === null) return undefined;
@@ -1878,7 +1889,7 @@ export async function scheduleFollowUpTask(
     await assertContactBelongsToOrganization(input.organizationId, input.contactId);
   }
 
-  const dueAt = new Date(input.dueAt);
+  const dueAt = parseTaskDueAt(input.dueAt);
   if (Number.isNaN(dueAt.getTime())) {
     throw new Error("A valid due date is required");
   }
@@ -1931,7 +1942,7 @@ export async function updateFollowUpTask(
     throw new Error("Task title is required");
   }
 
-  const dueAt = new Date(input.dueAt);
+  const dueAt = parseTaskDueAt(input.dueAt);
   if (Number.isNaN(dueAt.getTime())) {
     throw new Error("A valid due date is required");
   }
@@ -2148,7 +2159,7 @@ export async function bulkScheduleFollowUpTasks(
     throw new Error("Follow-up title is required");
   }
 
-  const dueAt = new Date(input.dueAt);
+  const dueAt = parseTaskDueAt(input.dueAt);
   if (Number.isNaN(dueAt.getTime())) {
     throw new Error("A valid due date is required");
   }
