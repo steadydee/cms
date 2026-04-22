@@ -206,8 +206,8 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
       <StatusNotice state={saveState} />
 
       <section className="rounded-[20px] border border-[#d8ccb9] bg-white px-6 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
+          <div className="min-w-0">
             <Link href={backHref} className="text-[12px] font-medium text-[#8c7e6a]">
               ← Back to accounts
             </Link>
@@ -218,7 +218,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 : "No primary person yet"}
               {(contact.city || contact.country) ? ` · ${[contact.city, contact.country].filter(Boolean).join(", ")}` : ""}
             </p>
-            <div className="mt-4 max-w-[900px]">
+            <div className="mt-5 w-full max-w-none">
               <AccountDetailsPanel
                 values={{
                   email: contact.email || "",
@@ -242,7 +242,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
           </div>
 
-          <div className="w-full max-w-[320px] rounded-2xl border border-[#f0d9c9] bg-[#fef7f0] p-4">
+          <div className="w-full rounded-2xl border border-[#f0d9c9] bg-[#fef7f0] p-4 xl:mt-7">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c4713b]">Next action</p>
