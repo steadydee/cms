@@ -179,6 +179,86 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 : "No primary person yet"}
               {(contact.city || contact.country) ? ` · ${[contact.city, contact.country].filter(Boolean).join(", ")}` : ""}
             </p>
+            <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <CompactEditableField
+                key={`email:${contact.email ?? ""}`}
+                icon={Mail}
+                label="Email"
+                initialValue={contact.email || ""}
+                onSave={(value) => {
+                  const formData = new FormData();
+                  formData.set("organizationId", contact.id);
+                  formData.set("field", "email");
+                  formData.set("value", value);
+                  return runAction(saveContactFieldAction, formData, "Email updated.");
+                }}
+              />
+              <CompactEditableField
+                key={`phone:${contact.phone ?? ""}`}
+                icon={Phone}
+                label="Phone"
+                initialValue={contact.phone || ""}
+                onSave={(value) => {
+                  const formData = new FormData();
+                  formData.set("organizationId", contact.id);
+                  formData.set("field", "phone");
+                  formData.set("value", value);
+                  return runAction(saveContactFieldAction, formData, "Phone updated.");
+                }}
+              />
+              <CompactEditableField
+                key={`whatsapp:${contact.whatsapp ?? ""}`}
+                icon={MessageSquareText}
+                label="WhatsApp"
+                initialValue={contact.whatsapp || ""}
+                onSave={(value) => {
+                  const formData = new FormData();
+                  formData.set("organizationId", contact.id);
+                  formData.set("field", "whatsapp");
+                  formData.set("value", value);
+                  return runAction(saveContactFieldAction, formData, "WhatsApp updated.");
+                }}
+              />
+              <CompactEditableField
+                key={`website:${contact.website ?? ""}`}
+                icon={TagIcon}
+                label="Website"
+                initialValue={contact.website || ""}
+                onSave={(value) => {
+                  const formData = new FormData();
+                  formData.set("organizationId", contact.id);
+                  formData.set("field", "website");
+                  formData.set("value", value);
+                  return runAction(saveContactFieldAction, formData, "Website updated.");
+                }}
+              />
+              <CompactEditableField
+                key={`city:${contact.city ?? ""}`}
+                icon={UserRound}
+                label="City"
+                initialValue={contact.city || ""}
+                onSave={(value) => {
+                  const formData = new FormData();
+                  formData.set("organizationId", contact.id);
+                  formData.set("field", "city");
+                  formData.set("value", value);
+                  return runAction(saveContactFieldAction, formData, "City updated.");
+                }}
+              />
+              <CompactEditableField
+                key={`country:${contact.country ?? ""}`}
+                icon={UserRound}
+                label="Country"
+                initialValue={contact.country || ""}
+                onSave={(value) => {
+                  const formData = new FormData();
+                  formData.set("organizationId", contact.id);
+                  formData.set("field", "country");
+                  formData.set("value", value);
+                  return runAction(saveContactFieldAction, formData, "Country updated.");
+                }}
+              />
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StageBadge stage={contact.displayStage} />
               {contact.tags.map((entry) => (
@@ -342,87 +422,6 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
         </section>
 
         <aside className="space-y-5">
-          <CardSection title="Account details">
-            <EditableField
-              key={`email:${contact.email ?? ""}`}
-              icon={Mail}
-              label="Email"
-              initialValue={contact.email || ""}
-              onSave={(value) => {
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("field", "email");
-                formData.set("value", value);
-                return runAction(saveContactFieldAction, formData, "Email updated.");
-              }}
-            />
-            <EditableField
-              key={`phone:${contact.phone ?? ""}`}
-              icon={Phone}
-              label="Phone"
-              initialValue={contact.phone || ""}
-              onSave={(value) => {
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("field", "phone");
-                formData.set("value", value);
-                return runAction(saveContactFieldAction, formData, "Phone updated.");
-              }}
-            />
-            <EditableField
-              key={`whatsapp:${contact.whatsapp ?? ""}`}
-              icon={MessageSquareText}
-              label="WhatsApp"
-              initialValue={contact.whatsapp || ""}
-              onSave={(value) => {
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("field", "whatsapp");
-                formData.set("value", value);
-                return runAction(saveContactFieldAction, formData, "WhatsApp updated.");
-              }}
-            />
-            <EditableField
-              key={`website:${contact.website ?? ""}`}
-              icon={TagIcon}
-              label="Website"
-              initialValue={contact.website || ""}
-              onSave={(value) => {
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("field", "website");
-                formData.set("value", value);
-                return runAction(saveContactFieldAction, formData, "Website updated.");
-              }}
-            />
-            <EditableField
-              key={`city:${contact.city ?? ""}`}
-              icon={UserRound}
-              label="City"
-              initialValue={contact.city || ""}
-              onSave={(value) => {
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("field", "city");
-                formData.set("value", value);
-                return runAction(saveContactFieldAction, formData, "City updated.");
-              }}
-            />
-            <EditableField
-              key={`country:${contact.country ?? ""}`}
-              icon={UserRound}
-              label="Country"
-              initialValue={contact.country || ""}
-              onSave={(value) => {
-                const formData = new FormData();
-                formData.set("organizationId", contact.id);
-                formData.set("field", "country");
-                formData.set("value", value);
-                return runAction(saveContactFieldAction, formData, "Country updated.");
-              }}
-            />
-          </CardSection>
-
           <CardSection title={`People (${contact.contacts.length})`}>
             <div className="space-y-3">
               {contact.contacts.map((person) => (
@@ -821,6 +820,94 @@ function EditableField({
           {value || <span className="text-[#aa9c87]">{placeholder}</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+function CompactEditableField({
+  icon: Icon,
+  label,
+  initialValue,
+  placeholder = "Add...",
+  onSave,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  initialValue: string;
+  placeholder?: string;
+  onSave: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(initialValue);
+
+  return (
+    <div className="rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+          </div>
+          {!editing ? (
+            <div className="mt-1 truncate text-[13px] text-[#2c2416]">
+              {value || <span className="text-[#aa9c87]">{placeholder}</span>}
+            </div>
+          ) : null}
+        </div>
+        {!editing ? (
+          <button
+            type="button"
+            className="shrink-0 rounded-md border border-[#d8ccb9] bg-white px-2 py-1 text-[10px] font-medium text-[#6d614d]"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </button>
+        ) : null}
+      </div>
+
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <input
+            autoFocus
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                setEditing(false);
+                void onSave(value);
+              }
+
+              if (event.key === "Escape") {
+                setValue(initialValue);
+                setEditing(false);
+              }
+            }}
+            className="w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[12px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-[#2c2416] px-2.5 py-1.5 text-[10px] font-medium text-white"
+              onClick={() => {
+                setEditing(false);
+                void onSave(value);
+              }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-[#d8ccb9] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#6d614d]"
+              onClick={() => {
+                setValue(initialValue);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
