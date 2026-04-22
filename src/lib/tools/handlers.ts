@@ -3,7 +3,6 @@ import {
   ResearchFindingStatus,
   ResearchSourceType,
   RelationshipStatus,
-  type PartnerType,
   type VisitStatus,
 } from "@prisma/client";
 import type { PartnersRequestContext } from "@/lib/auth";
@@ -19,6 +18,7 @@ import {
   createResearchFinding,
   draftIntroEmail,
   getActivityStream,
+  getDefaultPartnerTypeValue,
   getDashboardSummary,
   getOrganizationDetail,
   getOrganizationViewCounts,
@@ -120,16 +120,11 @@ function toVisitStatus(value: unknown): VisitStatus | "all" | undefined {
   throw new ToolError("VALIDATION_FAILED", "Invalid visit status.", { status: 400 });
 }
 
-function toPartnerType(value: unknown): PartnerType | "all" | undefined {
-  if (
-    value === "agency" ||
-    value === "operator" ||
-    value === "travel_advisor" ||
-    value === "media" ||
-    value === "other" ||
-    value === "all"
-  ) {
-    return value;
+function toPartnerType(value: unknown): string | "all" | undefined {
+  if (value === "all") return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || undefined;
   }
   if (value === undefined || value === null || value === "") return undefined;
   throw new ToolError("VALIDATION_FAILED", "Invalid account type.", { status: 400 });
@@ -353,9 +348,10 @@ export async function executeTool(
     }
 
     case "create_partner_account": {
+      const defaultPartnerType = await getDefaultPartnerTypeValue(context.propertyId);
       const organization = await createOrganization(context, {
         name: requireString(input, "name"),
-        type: (toPartnerType(input.type) as PartnerType | undefined) ?? "agency",
+        type: toPartnerType(input.type) ?? defaultPartnerType,
         country: optionalString(input, "country"),
         city: optionalString(input, "city"),
         email: optionalString(input, "email"),

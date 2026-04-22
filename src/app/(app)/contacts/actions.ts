@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { OutreachChannel, RelationshipStatus, TaskStatus, VisitStatus, type PartnerType } from "@prisma/client";
+import { OutreachChannel, RelationshipStatus, TaskStatus, VisitStatus } from "@prisma/client";
 import { authorizePartnersAccess, type PartnersRequestContext } from "@/lib/auth";
 import { setFlashMessage } from "@/lib/flash";
 import { sendAccountEmail, syncMailbox } from "@/lib/services/partner-email";
@@ -28,12 +28,6 @@ type InlineActionResult = {
   ok: boolean;
   error?: string;
 };
-
-function parsePartnerType(value: string | null): PartnerType {
-  return value === "operator" || value === "travel_advisor" || value === "media" || value === "other"
-    ? value
-    : "agency";
-}
 
 function parseChannel(value: string | null): OutreachChannel {
   if (value === "whatsapp" || value === "phone" || value === "meeting" || value === "other") {
@@ -121,7 +115,7 @@ export async function createQuickContactAction(formData: FormData) {
 
     const organization = await createQuickContact(access.context, {
       name: String(formData.get("name") ?? ""),
-      type: parsePartnerType(formData.get("type") as string | null),
+      type: String(formData.get("type") ?? ""),
       emailOrWhatsapp: String(formData.get("emailOrWhatsapp") ?? ""),
     });
 

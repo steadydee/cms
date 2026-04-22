@@ -1,5 +1,5 @@
 import { getPartnersRequestContext } from "@/lib/auth";
-import { listContactsIndex } from "@/lib/services/partners";
+import { listContactsIndex, listPartnerTypeOptions } from "@/lib/services/partners";
 import { ContactList } from "@/components/contacts/contact-list";
 
 type ContactsSearchParams = {
@@ -16,10 +16,13 @@ export default async function ContactsPage({
   if (!context) return null;
 
   const resolvedSearchParams = await searchParams;
-  const items = await listContactsIndex(context.propertyId, {
-    query: resolvedSearchParams.query || "",
-    stage: parseStage(resolvedSearchParams.stage),
-  });
+  const [items, typeOptions] = await Promise.all([
+    listContactsIndex(context.propertyId, {
+      query: resolvedSearchParams.query || "",
+      stage: parseStage(resolvedSearchParams.stage),
+    }),
+    listPartnerTypeOptions(context.propertyId),
+  ]);
 
   return (
     <div className="w-full">
@@ -29,6 +32,7 @@ export default async function ContactsPage({
           query: resolvedSearchParams.query || "",
           stage: resolvedSearchParams.stage || "all",
         }}
+        typeOptions={typeOptions}
       />
     </div>
   );

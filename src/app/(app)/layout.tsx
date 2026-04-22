@@ -44,6 +44,9 @@ export default async function AppLayout({
               <Link href="/tasks" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
                 Tasks
               </Link>
+              <Link href="/setup" className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
+                Setup
+              </Link>
               <EnvironmentBadge environment={environment} />
             </div>
             <Link

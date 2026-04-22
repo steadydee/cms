@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getPartnersRequestContext } from "@/lib/auth";
 import { CONTACT_STAGE_META } from "@/lib/partners-ui";
-import { getDashboardOverview, getOpsOverview } from "@/lib/services/partners";
+import { getDashboardOverview, getOpsOverview, listPartnerTypeOptions } from "@/lib/services/partners";
 import { QuickAddContact } from "@/components/contacts/quick-add-contact";
 import { EmailTemplateCard } from "@/components/dashboard/email-template-card";
 
@@ -9,9 +9,10 @@ export default async function DashboardPage() {
   const context = await getPartnersRequestContext();
   if (!context) return null;
 
-  const [dashboard, ops] = await Promise.all([
+  const [dashboard, ops, typeOptions] = await Promise.all([
     getDashboardOverview(context.propertyId),
     getOpsOverview(context.propertyId),
+    listPartnerTypeOptions(context.propertyId),
   ]);
   const researchingCount = ops.pipelineSnapshot.find((item) => item.stage === "researching")?.count ?? 0;
   const readyCount = ops.pipelineSnapshot.find((item) => item.stage === "ready")?.count ?? 0;
@@ -28,7 +29,7 @@ export default async function DashboardPage() {
               Outreach CRM for birding operators and agencies in Colombia.
             </p>
           </div>
-          <QuickAddContact returnTo="/dashboard" />
+          <QuickAddContact returnTo="/dashboard" typeOptions={typeOptions} />
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2 text-[12px]">

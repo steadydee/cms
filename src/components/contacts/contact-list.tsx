@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ContactStage } from "@/lib/partners-ui";
 import { CONTACT_STAGE_META } from "@/lib/partners-ui";
-import type { listContactsIndex } from "@/lib/services/partners";
+import type { ControlTableOption, listContactsIndex } from "@/lib/services/partners";
 import { QuickAddContact } from "@/components/contacts/quick-add-contact";
 
 type ContactListItem = Awaited<ReturnType<typeof listContactsIndex>>[number];
@@ -31,11 +31,13 @@ export function ContactList({
   selectedId,
   searchParams,
   compact = false,
+  typeOptions,
 }: {
   items: ContactListItem[];
   selectedId?: string;
   searchParams: Record<string, string | undefined>;
   compact?: boolean;
+  typeOptions: ControlTableOption[];
 }) {
   return (
     <section className={`rounded-[22px] border border-[#d8ccb9] bg-white shadow-sm ${compact ? "h-full" : ""}`}>
@@ -47,7 +49,7 @@ export function ContactList({
             <p className="mt-2 text-[13px] text-[#8c7e6a]">{items.length} matching accounts</p>
             <p className="mt-1 text-[12px] text-[#9a8e7a]">Each account is one operator or agency. Add people and outreach from the detail page.</p>
           </div>
-          <QuickAddContact compact returnTo="/contacts" />
+          <QuickAddContact compact returnTo="/contacts" typeOptions={typeOptions} />
         </div>
 
         <form className="mt-5">

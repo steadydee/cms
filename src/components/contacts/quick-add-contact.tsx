@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { createQuickContactAction } from "@/app/(app)/contacts/actions";
+import type { ControlTableOption } from "@/lib/services/partners";
 
 const inputClassName =
   "w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]";
@@ -10,11 +11,14 @@ const inputClassName =
 export function QuickAddContact({
   compact = false,
   returnTo = "/contacts",
+  typeOptions,
 }: {
   compact?: boolean;
   returnTo?: string;
+  typeOptions: ControlTableOption[];
 }) {
   const [open, setOpen] = useState(false);
+  const defaultTypeValue = typeOptions[0]?.value ?? "";
 
   return (
     <div className={compact ? "w-full" : "w-full max-w-[360px]"}>
@@ -38,12 +42,12 @@ export function QuickAddContact({
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Type</label>
-            <select name="type" defaultValue="operator" className={`${inputClassName} mt-2`}>
-              <option value="operator">Birding operator</option>
-              <option value="agency">Agency</option>
-              <option value="other">Adventure operator / other</option>
-              <option value="travel_advisor">Travel advisor</option>
-              <option value="media">Media</option>
+            <select name="type" defaultValue={defaultTypeValue} className={`${inputClassName} mt-2`}>
+              {typeOptions.map((option) => (
+                <option key={option.id} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
           <div>

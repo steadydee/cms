@@ -18,13 +18,7 @@ import {
   updateOrganizationProfile,
   updateOrganizationStatus,
 } from "@/lib/services/partners";
-import { OutreachChannel, RelationshipStatus, VisitStatus, type PartnerType } from "@prisma/client";
-
-function parsePartnerType(value: string | null): PartnerType {
-  return value === "operator" || value === "travel_advisor" || value === "media" || value === "other"
-    ? value
-    : "agency";
-}
+import { OutreachChannel, RelationshipStatus, VisitStatus } from "@prisma/client";
 
 function parseChannel(value: string | null): OutreachChannel {
   return value === "whatsapp" || value === "phone" || value === "meeting" || value === "other"
@@ -86,7 +80,7 @@ export async function createOrganizationAction(formData: FormData) {
 
     const organization = await createOrganization(access.context, {
       name: String(formData.get("name") ?? ""),
-      type: parsePartnerType(formData.get("type") as string | null),
+      type: String(formData.get("type") ?? ""),
       country: String(formData.get("country") ?? ""),
       city: String(formData.get("city") ?? ""),
       email: String(formData.get("email") ?? ""),

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, FolderKanban, LayoutGrid, SquareCheckBig } from "lucide-react";
+import { ArrowLeft, FolderKanban, LayoutGrid, Settings2, SquareCheckBig } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EnvironmentBadge } from "@/components/layout/environment-badge";
 
@@ -10,6 +10,7 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { label: "Accounts", href: "/contacts", icon: FolderKanban },
   { label: "Tasks", href: "/tasks", icon: SquareCheckBig },
+  { label: "Setup", href: "/setup", icon: Settings2 },
 ];
 
 export function Sidebar({

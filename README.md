@@ -57,6 +57,7 @@ The first implementation includes:
 - organizations list and creation
 - organization detail with contacts, Gmail-backed email conversations, outreach touches, and follow-up tasks
 - follow-up queue
+- setup page with control tables for account types
 - tool discovery at `/.well-known/ow-tools`
 - PMS-style machine-token auth through Hub-issued agent tokens
 - read, draft, guarded-write, and restricted tools at `/api/tools/[tool]`
@@ -98,6 +99,20 @@ Each account detail page now includes a Gmail-backed `Conversation` workspace:
 - keep templates, manual call/WhatsApp logs, notes, and tasks in the same workspace
 
 Implementation details are documented in [Partners Email Workspace](./docs/partners-email-workspace.md).
+
+## Setup Controls
+
+`/setup` now manages runtime control tables for the CRM.
+
+Current control tables:
+
+- `Account types`
+
+Account types are no longer a hardcoded Prisma enum in the app runtime. They are stored as property-scoped control values and drive:
+
+- quick-add account creation
+- setup-managed type labels and values
+- service and tool validation for new account creation
 
 ## Recommended MVP
 

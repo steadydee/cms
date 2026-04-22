@@ -5,7 +5,6 @@ import {
   ResearchSourceType,
   RelationshipStatus,
   TaskStatus,
-  type PartnerType,
   type VisitStatus,
 } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -26,7 +25,7 @@ export type SavedOrganizationView =
 export type OrganizationFilters = {
   status?: RelationshipStatus | "all";
   visitStatus?: VisitStatus | "all";
-  type?: PartnerType | "all";
+  type?: string | "all";
   source?: string;
   owner?: string;
   query?: string;
@@ -81,6 +80,17 @@ type OpsStageSnapshot = {
   count: number;
 };
 
+export type ControlTableKey = "partner_type";
+
+export type ControlTableOption = {
+  id: string;
+  value: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+  usageCount: number;
+};
+
 const DEFAULT_EMAIL_TEMPLATES = [
   {
     name: "Intro — birding operator",
@@ -101,6 +111,16 @@ const DEFAULT_EMAIL_TEMPLATES = [
     sortOrder: 2,
   },
 ];
+
+const PARTNER_TYPE_TABLE_KEY: ControlTableKey = "partner_type";
+
+const DEFAULT_PARTNER_TYPE_OPTIONS = [
+  { value: "agency", label: "Agency", sortOrder: 0 },
+  { value: "operator", label: "Birding operator", sortOrder: 1 },
+  { value: "travel_advisor", label: "Travel advisor", sortOrder: 2 },
+  { value: "media", label: "Media", sortOrder: 3 },
+  { value: "other", label: "Other", sortOrder: 4 },
+] as const;
 
 export const ORGANIZATION_VIEW_LABELS: Record<SavedOrganizationView, string> = {
   all: "All organizations",
@@ -136,6 +156,14 @@ async function assertContactBelongsToOrganization(organizationId: string, contac
 
 function getActorType(context: PartnersRequestContext): "human" | "agent" {
   return context.source === "agent" ? "agent" : "human";
+}
+
+function normalizeControlValue(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function parseTaskDueAt(input: string) {
@@ -184,6 +212,47 @@ async function ensureDefaultEmailTemplates(propertyId: string) {
   });
 }
 
+async function ensurePartnerTypeOptions(propertyId: string) {
+  const defaults = DEFAULT_PARTNER_TYPE_OPTIONS.map((option) => ({
+    propertyId,
+    tableKey: PARTNER_TYPE_TABLE_KEY,
+    value: option.value,
+    label: option.label,
+    sortOrder: option.sortOrder,
+    isActive: true,
+  }));
+
+  await db.propertyControlOption.createMany({
+    data: defaults,
+    skipDuplicates: true,
+  });
+
+  const existingTypes = await db.partnerOrganization.findMany({
+    where: { propertyId },
+    distinct: ["type"],
+    select: { type: true },
+  });
+
+  const missingLegacyTypes = existingTypes
+    .map((entry) => entry.type.trim())
+    .filter(Boolean)
+    .filter((value) => !DEFAULT_PARTNER_TYPE_OPTIONS.some((option) => option.value === value));
+
+  if (missingLegacyTypes.length === 0) return;
+
+  await db.propertyControlOption.createMany({
+    data: missingLegacyTypes.map((value, index) => ({
+      propertyId,
+      tableKey: PARTNER_TYPE_TABLE_KEY,
+      value,
+      label: value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+      sortOrder: DEFAULT_PARTNER_TYPE_OPTIONS.length + index,
+      isActive: true,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 async function syncOrganizationNextActionAt(
   tx: Prisma.TransactionClient,
   organizationId: string
@@ -209,6 +278,165 @@ async function syncOrganizationNextActionAt(
 
 function createActivityStreamItemId(prefix: string, id: string) {
   return `${prefix}:${id}`;
+}
+
+export async function listPartnerTypeOptions(propertyId: string, options?: { includeInactive?: boolean }) {
+  await ensurePartnerTypeOptions(propertyId);
+
+  const [rows, groupedUsage] = await Promise.all([
+    db.propertyControlOption.findMany({
+      where: {
+        propertyId,
+        tableKey: PARTNER_TYPE_TABLE_KEY,
+        ...(options?.includeInactive ? {} : { isActive: true }),
+      },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+    }),
+    db.partnerOrganization.groupBy({
+      by: ["type"],
+      where: { propertyId },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const usageByType = new Map(groupedUsage.map((entry) => [entry.type, entry._count._all]));
+
+  return rows.map<ControlTableOption>((row) => ({
+    id: row.id,
+    value: row.value,
+    label: row.label,
+    sortOrder: row.sortOrder,
+    isActive: row.isActive,
+    usageCount: usageByType.get(row.value) ?? 0,
+  }));
+}
+
+export async function getDefaultPartnerTypeValue(propertyId: string) {
+  const options = await listPartnerTypeOptions(propertyId);
+  return options[0]?.value ?? DEFAULT_PARTNER_TYPE_OPTIONS[0].value;
+}
+
+async function assertPartnerTypeValue(propertyId: string, value: string) {
+  await ensurePartnerTypeOptions(propertyId);
+  const normalizedValue = value.trim();
+  if (!normalizedValue) {
+    throw new Error("Account type is required");
+  }
+
+  const option = await db.propertyControlOption.findFirst({
+    where: {
+      propertyId,
+      tableKey: PARTNER_TYPE_TABLE_KEY,
+      value: normalizedValue,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  if (!option) {
+    throw new Error("Account type is not configured in Setup");
+  }
+
+  return normalizedValue;
+}
+
+export async function savePartnerTypeOptions(
+  context: PartnersRequestContext,
+  input: {
+    rows: Array<{
+      id?: string;
+      originalValue?: string;
+      value: string;
+      label: string;
+      isActive: boolean;
+      sortOrder: number;
+    }>;
+  }
+) {
+  await ensurePartnerTypeOptions(context.propertyId);
+
+  const cleanedRows = input.rows.map((row, index) => ({
+    id: row.id?.trim() || undefined,
+    originalValue: row.originalValue?.trim() || undefined,
+    value: normalizeControlValue(row.value),
+    label: row.label.trim(),
+    isActive: row.isActive,
+    sortOrder: Number.isFinite(row.sortOrder) ? row.sortOrder : index,
+  }));
+
+  if (cleanedRows.length === 0) {
+    throw new Error("Add at least one account type.");
+  }
+
+  const seenValues = new Set<string>();
+  for (const row of cleanedRows) {
+    if (!row.value) {
+      throw new Error("Each account type needs a value.");
+    }
+    if (!row.label) {
+      throw new Error("Each account type needs a label.");
+    }
+    if (seenValues.has(row.value)) {
+      throw new Error(`Duplicate account type value: ${row.value}`);
+    }
+    seenValues.add(row.value);
+  }
+
+  if (!cleanedRows.some((row) => row.isActive)) {
+    throw new Error("Keep at least one account type active.");
+  }
+
+  const existingRows = await db.propertyControlOption.findMany({
+    where: { propertyId: context.propertyId, tableKey: PARTNER_TYPE_TABLE_KEY },
+    select: { id: true, value: true },
+  });
+  const existingById = new Map(existingRows.map((row) => [row.id, row]));
+
+  return db.$transaction(async (tx) => {
+    for (const row of cleanedRows) {
+      if (row.id) {
+        const existing = existingById.get(row.id);
+        if (!existing) {
+          throw new Error("Account type row not found.");
+        }
+
+        const previousValue = row.originalValue || existing.value;
+        if (previousValue !== row.value) {
+          await tx.partnerOrganization.updateMany({
+            where: { propertyId: context.propertyId, type: previousValue },
+            data: { type: row.value },
+          });
+        }
+
+        await tx.propertyControlOption.update({
+          where: { id: row.id },
+          data: {
+            value: row.value,
+            label: row.label,
+            isActive: row.isActive,
+            sortOrder: row.sortOrder,
+          },
+        });
+        continue;
+      }
+
+      await tx.propertyControlOption.create({
+        data: {
+          propertyId: context.propertyId,
+          tableKey: PARTNER_TYPE_TABLE_KEY,
+          value: row.value,
+          label: row.label,
+          isActive: row.isActive,
+          sortOrder: row.sortOrder,
+        },
+      });
+    }
+
+    return tx.propertyControlOption.findMany({
+      where: { propertyId: context.propertyId, tableKey: PARTNER_TYPE_TABLE_KEY },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+    });
+  });
 }
 
 function buildOrganizationWhere(propertyId: string, filters: OrganizationFilters): Prisma.PartnerOrganizationWhereInput {
@@ -1297,11 +1525,13 @@ export async function promoteResearchFindingToOrganization(
     throw new Error("This finding needs an observed name before it can be promoted");
   }
 
+  const defaultPartnerType = await getDefaultPartnerTypeValue(context.propertyId);
+
   const organization = await db.partnerOrganization.create({
     data: {
       propertyId: context.propertyId,
       name,
-      type: "agency",
+      type: defaultPartnerType,
       website: finding.sourceUrl || String(extracted.website ?? "").trim() || null,
       email: String(extracted.email ?? "").trim() || null,
       phone: String(extracted.phone ?? "").trim() || null,
@@ -1381,7 +1611,7 @@ export async function createQuickContact(
   context: PartnersRequestContext,
   input: {
     name: string;
-    type: PartnerType;
+    type: string;
     emailOrWhatsapp?: string;
   }
 ) {
@@ -1389,6 +1619,7 @@ export async function createQuickContact(
   if (!name) {
     throw new Error("Account name is required");
   }
+  const type = await assertPartnerTypeValue(context.propertyId, input.type);
 
   const rawContact = input.emailOrWhatsapp?.trim() || "";
   const looksLikeEmail = rawContact.includes("@");
@@ -1399,7 +1630,7 @@ export async function createQuickContact(
       data: {
         propertyId: context.propertyId,
         name,
-        type: input.type,
+        type,
         email: looksLikeEmail ? rawContact : null,
         whatsapp: !looksLikeEmail && rawContact ? rawContact : null,
         source: "manual",
@@ -1638,7 +1869,7 @@ export async function createOrganization(
   context: PartnersRequestContext,
   input: {
     name: string;
-    type: PartnerType;
+    type: string;
     country?: string;
     city?: string;
     email?: string;
@@ -1653,6 +1884,7 @@ export async function createOrganization(
   if (!input.name.trim()) {
     throw new Error("Organization name is required");
   }
+  const type = await assertPartnerTypeValue(context.propertyId, input.type);
 
   const nextActionAt = input.nextActionAt?.trim() ? new Date(input.nextActionAt) : null;
   if (input.nextActionAt?.trim() && (!nextActionAt || Number.isNaN(nextActionAt.getTime()))) {
@@ -1663,7 +1895,7 @@ export async function createOrganization(
     data: {
       propertyId: context.propertyId,
       name: input.name.trim(),
-      type: input.type,
+      type,
       country: input.country?.trim() || null,
       city: input.city?.trim() || null,
       email: input.email?.trim() || null,
