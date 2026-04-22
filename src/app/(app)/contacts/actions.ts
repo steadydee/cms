@@ -111,6 +111,7 @@ async function withInlineWriteAccess(
 
 export async function createQuickContactAction(formData: FormData) {
   const returnTo = getReturnTo(formData, "/contacts");
+  let destination = returnTo;
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -126,16 +127,18 @@ export async function createQuickContactAction(formData: FormData) {
 
     revalidateContactsSurface(organization.id);
     await setFlashMessage({ type: "success", text: `Created account ${organization.name}.` });
-    redirect(`/contacts/${organization.id}`);
+    destination = `/contacts/${organization.id}`;
   } catch (error) {
     await setFlashMessage({ type: "error", text: getErrorMessage(error) });
-    redirect(returnTo);
   }
+
+  redirect(destination);
 }
 
 export async function archiveContactAction(formData: FormData) {
   const organizationId = String(formData.get("organizationId") ?? "");
   const returnTo = getReturnTo(formData, "/contacts");
+  let destination = returnTo;
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -146,11 +149,12 @@ export async function archiveContactAction(formData: FormData) {
     await archiveOrganization(access.context, organizationId);
     revalidateContactsSurface(organizationId);
     await setFlashMessage({ type: "success", text: "Account archived." });
-    redirect("/contacts");
+    destination = "/contacts";
   } catch (error) {
     await setFlashMessage({ type: "error", text: getErrorMessage(error) });
-    redirect(returnTo);
   }
+
+  redirect(destination);
 }
 
 export async function saveContactFieldAction(formData: FormData): Promise<InlineActionResult> {
