@@ -147,21 +147,12 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   }, [contact]);
 
   const defaultRecipient = recipientOptions[0] ?? null;
-  const defaultMergedTemplate = defaultTemplate
-    ? mergeTemplate(
-        defaultTemplate.body,
-        defaultTemplate.subject,
-        contact.name,
-        defaultRecipient?.label.split(" · ")[0] || contact.name
-      )
-    : { subject: "", body: "" };
-
   const [activeThreadId, setActiveThreadId] = useState(contact.emailThreads[0]?.id ?? "");
-  const [selectedTemplateId, setSelectedTemplateId] = useState(defaultTemplate?.id ?? "");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [toEmail, setToEmail] = useState(defaultRecipient?.email ?? "");
   const [contactId, setContactId] = useState(defaultRecipient?.contactId ?? "");
-  const [subject, setSubject] = useState(defaultMergedTemplate.subject);
-  const [body, setBody] = useState(defaultMergedTemplate.body);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
 
   const activeThread = contact.emailThreads.find((thread) => thread.id === activeThreadId) ?? null;
   const conversationReturnTo = `/contacts/${contact.id}`;
@@ -181,8 +172,10 @@ export function AccountConversation({ contact }: AccountConversationProps) {
 
   function openNewDraft() {
     setActiveThreadId("");
+    setSelectedTemplateId("");
+    setSubject("");
+    setBody("");
     setSaveState({ kind: "idle" });
-    resetToTemplate(defaultTemplate?.id);
   }
 
   function replyToThread() {
