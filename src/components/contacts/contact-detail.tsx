@@ -166,7 +166,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
     <div className="space-y-6">
       <StatusNotice state={saveState} />
 
-      <section className="rounded-[20px] border border-[#e8e0d4] bg-white px-6 py-5 shadow-sm">
+      <section className="rounded-[20px] border border-[#d8ccb9] bg-white px-6 py-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <Link href={backHref} className="text-[12px] font-medium text-[#8c7e6a]">
@@ -231,7 +231,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <section className="space-y-5">
-          <div className="rounded-[20px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
             <textarea
               value={noteText}
               onChange={(event) => setNoteText(event.target.value)}
@@ -245,7 +245,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 }
               }}
               placeholder="Add an internal note... (⌘+Enter to save)"
-              className="min-h-[96px] w-full rounded-xl border border-[#e8e0d4] bg-[#fdfaf6] px-4 py-3 text-[14px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+              className="min-h-[96px] w-full rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] px-4 py-3 text-[14px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-[12px] text-[#8c7e6a]">Internal notes stay at the top of the activity stream.</p>
@@ -269,7 +269,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
 
           <AccountConversation contact={contact} />
 
-          <div className="rounded-[20px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
             <div className="flex flex-wrap gap-2">
               <ActionButton icon={Phone} label="Call" onClick={() => setLogType("phone")} />
               <ActionButton icon={MessageSquareText} label="WhatsApp" onClick={() => setLogType("whatsapp")} />
@@ -311,7 +311,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             ) : null}
           </div>
 
-          <div className="rounded-[20px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Activity stream</p>
@@ -320,12 +320,12 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
             <div className="mt-5 space-y-3">
               {contact.activityStream.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#ddd2c4] px-4 py-6 text-[13px] text-[#9a8e7a]">
+                <div className="rounded-xl border border-dashed border-[#cdbfae] px-4 py-6 text-[13px] text-[#9a8e7a]">
                   No activity yet.
                 </div>
               ) : (
                 contact.activityStream.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-[#ece4d8] bg-[#fffdfa] px-4 py-3">
+                  <div key={item.id} className="rounded-xl border border-[#d9ccb9] bg-[#fffdfa] px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <StreamBadge type={item.type} />
@@ -426,7 +426,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
           <CardSection title={`People (${contact.contacts.length})`}>
             <div className="space-y-3">
               {contact.contacts.map((person) => (
-                <div key={person.id} className="rounded-xl border border-[#ebe3d8] bg-[#fffdfa] p-3">
+                <div key={person.id} className="rounded-xl border border-[#d7cab7] bg-[#fffdfa] p-3">
                   {editingPerson === person.id ? (
                     <PersonEditor
                       initialPerson={person}
@@ -461,7 +461,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
 
             {showAddPerson ? (
-              <div className="mt-3 rounded-xl border border-[#e8e0d4] bg-[#fdfaf6] p-3">
+              <div className="mt-3 rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] p-3">
                 <PersonEditor
                   disabled={isPending}
                   onSubmit={(values) => {
@@ -479,7 +479,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
               <button
                 type="button"
                 onClick={() => setShowAddPerson(true)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#d8d0c4] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#c8baaa] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
               >
                 <Plus className="h-4 w-4" />
                 Add person
@@ -555,7 +555,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
           <CardSection title={`Tasks (${contact.openTasks.length} open)`}>
             <div className="space-y-3">
               {contact.openTasks.map((task) => (
-                <div key={task.id} className="rounded-xl border border-[#ebe3d8] bg-[#fffdfa] p-3">
+                <div key={task.id} className="rounded-xl border border-[#d7cab7] bg-[#fffdfa] p-3">
                   <label className="flex items-start gap-3">
                     <input
                       type="checkbox"
@@ -604,7 +604,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
 
             {showAddTask ? (
-              <div className="mt-3 rounded-xl border border-[#e8e0d4] bg-[#fdfaf6] p-3">
+              <div className="mt-3 rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] p-3">
                 <TaskEditor
                   initialTitle=""
                   initialDueAt=""
@@ -624,7 +624,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
               <button
                 type="button"
                 onClick={() => setShowAddTask(true)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#d8d0c4] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#c8baaa] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
               >
                 <Plus className="h-4 w-4" />
                 Add task
@@ -715,7 +715,7 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-full border border-[#e8e0d4] bg-[#fffdfa] px-3 py-2 text-[12px] font-medium text-[#5f5547]"
+      className="inline-flex items-center gap-2 rounded-full border border-[#d8ccb9] bg-[#fffdfa] px-3 py-2 text-[12px] font-medium text-[#5f5547]"
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -731,7 +731,7 @@ function CardSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[20px] border border-[#e8e0d4] bg-white p-4 shadow-sm">
+    <section className="rounded-[20px] border border-[#d8ccb9] bg-white p-4 shadow-sm">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">{title}</p>
       <div className="mt-3">{children}</div>
     </section>
@@ -755,7 +755,7 @@ function EditableField({
   const [value, setValue] = useState(initialValue);
 
   return (
-    <div className="border-b border-[#f0ebe3] py-3 last:border-b-0">
+    <div className="border-b border-[#ded2c2] py-3 last:border-b-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Icon className="h-4 w-4 shrink-0 text-[#8c7e6a]" />
@@ -764,7 +764,7 @@ function EditableField({
         {!editing ? (
           <button
             type="button"
-            className="shrink-0 rounded-md border border-[#e8e0d4] px-2 py-1 text-[11px] font-medium text-[#6d614d]"
+            className="shrink-0 rounded-md border border-[#d8ccb9] px-2 py-1 text-[11px] font-medium text-[#6d614d]"
             onClick={() => setEditing(true)}
           >
             Edit
@@ -790,7 +790,7 @@ function EditableField({
                   setEditing(false);
                 }
               }}
-              className="min-w-0 flex-1 rounded-lg border border-[#e8e0d4] bg-[#fdfaf6] px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+              className="min-w-0 flex-1 rounded-lg border border-[#d8ccb9] bg-[#fdfaf6] px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
             />
             <div className="flex items-center gap-2 sm:shrink-0">
               <button
@@ -805,7 +805,7 @@ function EditableField({
               </button>
               <button
                 type="button"
-                className="rounded-md border border-[#e8e0d4] px-3 py-2 text-[11px] font-medium text-[#6d614d]"
+                className="rounded-md border border-[#d8ccb9] px-3 py-2 text-[11px] font-medium text-[#6d614d]"
                 onClick={() => {
                   setValue(initialValue);
                   setEditing(false);
@@ -881,7 +881,7 @@ function PersonEditor({
         >
           {submitLabel}
         </button>
-        <button type="button" onClick={onClose} className="rounded-lg border border-[#e8e0d4] px-3 py-2 text-[12px] font-medium text-[#6d614d]">
+        <button type="button" onClick={onClose} className="rounded-lg border border-[#d8ccb9] px-3 py-2 text-[12px] font-medium text-[#6d614d]">
           Cancel
         </button>
       </div>
@@ -921,7 +921,7 @@ function TaskEditor({
           {submitLabel}
         </button>
         {onClose ? (
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#e8e0d4] px-3 py-2 text-[12px] font-medium text-[#6d614d]">
+          <button type="button" onClick={onClose} className="rounded-lg border border-[#d8ccb9] px-3 py-2 text-[12px] font-medium text-[#6d614d]">
             Cancel
           </button>
         ) : null}

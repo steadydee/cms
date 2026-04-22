@@ -227,7 +227,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   }
 
   return (
-    <section className="rounded-[20px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
+    <section className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Conversation</p>
@@ -237,7 +237,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#ebe3d8] bg-[#fdfaf6] px-4 py-3 text-[12px] text-[#6d614d]">
+        <div className="rounded-2xl border border-[#d7cab7] bg-[#fdfaf6] px-4 py-3 text-[12px] text-[#6d614d]">
           {contact.mailbox.connected ? (
             <>
               <p className="font-medium text-[#2c2416]">{contact.mailbox.connectedEmail}</p>
@@ -269,7 +269,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               formData.set("organizationId", contact.id);
               runAction(syncMailboxAction, formData, "Inbox synced. Latest Gmail messages were checked for this account.");
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#ddd2c4] px-4 py-2 text-[13px] font-medium text-[#6d614d] disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#cdbfae] px-4 py-2 text-[13px] font-medium text-[#6d614d] disabled:opacity-60"
           >
             <RefreshCw className="h-4 w-4" />
             {isPending ? "Syncing..." : "Sync inbox"}
@@ -299,7 +299,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
           <button
             type="button"
             onClick={replyToThread}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#ddd2c4] px-4 py-2 text-[13px] font-medium text-[#6d614d]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#cdbfae] px-4 py-2 text-[13px] font-medium text-[#6d614d]"
           >
             <Reply className="h-4 w-4" />
             Reply to thread
@@ -314,13 +314,13 @@ export function AccountConversation({ contact }: AccountConversationProps) {
       ) : null}
 
       <div className="mt-6 space-y-5">
-        <div className="overflow-hidden rounded-2xl border border-[#ebe3d8] bg-[#fcfaf7]">
+        <div className="overflow-hidden rounded-2xl border border-[#d7cab7] bg-[#fcfaf7]">
           <div className="flex items-center justify-between gap-3">
             <p className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Threads</p>
             <span className="px-4 py-3 text-[11px] text-[#8c7e6a]">{contact.emailThreads.length}</span>
           </div>
 
-          <div className="border-t border-[#ebe3d8]">
+          <div className="border-t border-[#d7cab7]">
             {contact.emailThreads.length === 0 ? (
               <div className="px-4 py-5 text-[12px] leading-relaxed text-[#8c7e6a]">
                 No synced email threads yet. Connect Gmail, send the first message, then sync replies here.
@@ -334,7 +334,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     setActiveThreadId(thread.id);
                     setSaveState({ kind: "idle" });
                   }}
-                  className={`grid w-full grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] items-center gap-3 border-t border-[#ebe3d8] px-4 py-3 text-left transition first:border-t-0 ${
+                  className={`grid w-full grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] items-center gap-3 border-t border-[#d7cab7] px-4 py-3 text-left transition first:border-t-0 ${
                     activeThreadId === thread.id
                       ? "bg-[#eef5f0]"
                       : "bg-white hover:bg-[#faf7f2]"
@@ -362,8 +362,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
 
         <div className="space-y-5">
           {activeThread ? (
-            <div className="overflow-hidden rounded-2xl border border-[#ebe3d8] bg-white">
-              <div className="divide-y divide-[#ebe3d8]">
+            <div className="overflow-hidden rounded-2xl border border-[#d7cab7] bg-white">
+              <div className="divide-y divide-[#d7cab7]">
                 {activeThread.messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
@@ -371,7 +371,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-[#ebe3d8] bg-white p-4">
+          <div className="rounded-2xl border border-[#d7cab7] bg-white p-4">
             <div className="flex items-center gap-2">
               <WandSparkles className="h-4 w-4 text-[#c4713b]" />
               <p className="text-[13px] font-medium text-[#2c2416]">
@@ -404,7 +404,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                   className={`rounded-xl border px-4 py-3 text-left text-[12px] font-semibold shadow-sm transition active:scale-[0.99] ${
                     selectedTemplateId === template.id
                       ? "border-[#3d6b4f] bg-[#ebf3ed] text-[#2f5540] shadow-[0_0_0_1px_rgba(61,107,79,0.08)]"
-                      : "border-[#e8e0d4] bg-[#fcfaf7] text-[#5d5344] hover:border-[#d3c6b4] hover:bg-white"
+                      : "border-[#d8ccb9] bg-[#fcfaf7] text-[#5d5344] hover:border-[#c2b29f] hover:bg-white"
                   }`}
                 >
                   <span className="block">{template.name}</span>
@@ -418,7 +418,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                 <select
                   value={recipientOptions.find((option) => option.email === toEmail && option.contactId === contactId)?.key || ""}
                   onChange={(event) => applyRecipient(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                  className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
                 >
                   <option value="">Custom address</option>
                   {recipientOptions.map((option) => (
@@ -435,7 +435,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                   value={toEmail}
                   onChange={(event) => setToEmail(event.target.value)}
                   placeholder="partner@example.com"
-                  className="mt-2 w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                  className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
                 />
               </div>
             </div>
@@ -449,7 +449,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
               />
             </div>
 
@@ -458,7 +458,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               <textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
-                className="mt-2 min-h-[220px] w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="mt-2 min-h-[220px] w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
               />
             </div>
 
