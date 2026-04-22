@@ -179,7 +179,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 : "No primary person yet"}
               {(contact.city || contact.country) ? ` · ${[contact.city, contact.country].filter(Boolean).join(", ")}` : ""}
             </p>
-            <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-4 max-w-[760px] space-y-2">
               <CompactEditableField
                 key={`email:${contact.email ?? ""}`}
                 icon={Mail}
@@ -842,19 +842,15 @@ function CompactEditableField({
 
   return (
     <div className="rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] px-3 py-2.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
+      {!editing ? (
+        <div className="flex items-center gap-3">
+          <div className="flex min-w-[132px] items-center gap-2">
             <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
           </div>
-          {!editing ? (
-            <div className="mt-1 truncate text-[13px] text-[#2c2416]">
-              {value || <span className="text-[#aa9c87]">{placeholder}</span>}
-            </div>
-          ) : null}
-        </div>
-        {!editing ? (
+          <div className="min-w-0 flex-1 truncate text-[13px] text-[#2c2416]">
+            {value || <span className="text-[#aa9c87]">{placeholder}</span>}
+          </div>
           <button
             type="button"
             className="shrink-0 rounded-md border border-[#d8ccb9] bg-white px-2 py-1 text-[10px] font-medium text-[#6d614d]"
@@ -862,11 +858,13 @@ function CompactEditableField({
           >
             Edit
           </button>
-        ) : null}
-      </div>
-
-      {editing ? (
-        <div className="mt-2 space-y-2">
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-[132px] items-center gap-2">
+            <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+          </div>
           <input
             autoFocus
             value={value}
@@ -882,32 +880,30 @@ function CompactEditableField({
                 setEditing(false);
               }
             }}
-            className="w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[12px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+            className="min-w-[220px] flex-1 rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[12px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
           />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-md bg-[#2c2416] px-2.5 py-1.5 text-[10px] font-medium text-white"
-              onClick={() => {
-                setEditing(false);
-                void onSave(value);
-              }}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              className="rounded-md border border-[#d8ccb9] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#6d614d]"
-              onClick={() => {
-                setValue(initialValue);
-                setEditing(false);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            type="button"
+            className="rounded-md bg-[#2c2416] px-2.5 py-1.5 text-[10px] font-medium text-white"
+            onClick={() => {
+              setEditing(false);
+              void onSave(value);
+            }}
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-[#d8ccb9] bg-white px-2.5 py-1.5 text-[10px] font-medium text-[#6d614d]"
+            onClick={() => {
+              setValue(initialValue);
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
