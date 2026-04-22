@@ -47,6 +47,13 @@ function getReplySubject(subject: string | null | undefined) {
   return /^re:/i.test(value) ? value : `Re: ${value}`;
 }
 
+function formatInboxTime(date: Date | string) {
+  return new Date(date).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function StatusNotice({ state }: { state: SaveState }) {
   if (state.kind === "idle" || !state.message) return null;
 
@@ -72,26 +79,20 @@ function MessageBubble({
   const toEmails = Array.isArray(message.toEmails) ? message.toEmails.join(", ") : "";
 
   return (
-    <div className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[88%] rounded-2xl border px-4 py-3 shadow-sm ${
-          outbound
-            ? "border-[#d5e5da] bg-[#f1f7f3]"
-            : "border-[#ebe3d8] bg-[#fffdfa]"
-        }`}
-      >
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#8c7e6a]">
-          <span className="font-semibold uppercase tracking-[0.14em]">
+    <div className="px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8c7e6a]">
             {outbound ? "Sent" : "Reply"}
-          </span>
-          <span>{formatDateTime(message.sentAt)}</span>
+          </p>
+          <p className="mt-2 text-[14px] font-medium text-[#2c2416]">
+            {outbound ? `To ${toEmails || "recipient"}` : `From ${message.fromEmail || "sender"}`}
+          </p>
         </div>
-        <p className="mt-2 text-[12px] text-[#6d614d]">
-          {outbound ? `To ${toEmails || "recipient"}` : `From ${message.fromEmail || "sender"}`}
-        </p>
-        <div className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-[#2c2416]">
-          {message.bodyText}
-        </div>
+        <p className="whitespace-nowrap text-[12px] text-[#8c7e6a]">{formatDateTime(message.sentAt)}</p>
+      </div>
+      <div className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[#2c2416]">
+        {message.bodyText}
       </div>
     </div>
   );
@@ -312,16 +313,16 @@ export function AccountConversation({ contact }: AccountConversationProps) {
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="rounded-2xl border border-[#ebe3d8] bg-[#fcfaf7] p-3">
+      <div className="mt-6 space-y-5">
+        <div className="overflow-hidden rounded-2xl border border-[#ebe3d8] bg-[#fcfaf7]">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Threads</p>
-            <span className="text-[11px] text-[#8c7e6a]">{contact.emailThreads.length}</span>
+            <p className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Threads</p>
+            <span className="px-4 py-3 text-[11px] text-[#8c7e6a]">{contact.emailThreads.length}</span>
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="border-t border-[#ebe3d8]">
             {contact.emailThreads.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[#ddd2c4] px-3 py-5 text-[12px] leading-relaxed text-[#8c7e6a]">
+              <div className="px-4 py-5 text-[12px] leading-relaxed text-[#8c7e6a]">
                 No synced email threads yet. Connect Gmail, send the first message, then sync replies here.
               </div>
             ) : (
@@ -333,21 +334,25 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     setActiveThreadId(thread.id);
                     setSaveState({ kind: "idle" });
                   }}
-                  className={`w-full rounded-xl border px-3 py-3 text-left ${
+                  className={`grid w-full grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] items-center gap-3 border-t border-[#ebe3d8] px-4 py-3 text-left transition first:border-t-0 ${
                     activeThreadId === thread.id
-                      ? "border-[#d8e7dd] bg-[#eef5f0]"
-                      : "border-[#ebe3d8] bg-white"
+                      ? "bg-[#eef5f0]"
+                      : "bg-white hover:bg-[#faf7f2]"
                   }`}
                 >
-                  <p className="text-[13px] font-medium text-[#2c2416]">{thread.subject || "Untitled thread"}</p>
-                  <p className="mt-1 text-[12px] text-[#8c7e6a]">
-                    {thread.contact?.fullName || contact.name}
-                  </p>
-                  <p className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-[#6d614d]">
-                    {thread.snippet || "No preview"}
-                  </p>
-                  <p className="mt-3 text-[11px] text-[#9a8e7a]">
-                    {formatDateTime(thread.lastMessageAt)}
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-[#2c2416]">
+                      {thread.contact?.fullName || contact.name}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] text-[#2c2416]">
+                      <span className="font-medium">{thread.subject || "Untitled thread"}</span>
+                      <span className="text-[#8c7e6a]">{" — "}{thread.snippet || "No preview"}</span>
+                    </p>
+                  </div>
+                  <p className="whitespace-nowrap text-[11px] text-[#9a8e7a]">
+                    {formatInboxTime(thread.lastMessageAt)}
                   </p>
                 </button>
               ))
@@ -374,7 +379,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             </div>
 
             {activeThread ? (
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 divide-y divide-[#ebe3d8] overflow-hidden rounded-xl border border-[#ebe3d8] bg-white">
                 {activeThread.messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
