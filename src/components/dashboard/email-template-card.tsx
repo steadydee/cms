@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Edit3, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { saveEmailTemplateAction } from "@/app/(app)/dashboard/actions";
+import { saveEmailTemplateSetupAction } from "@/app/(app)/setup/actions";
 
 type EmailTemplateCardProps = {
   template: {
@@ -55,7 +55,7 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
 
   async function runSave(formData: FormData) {
     startTransition(async () => {
-      const result = await saveEmailTemplateAction(formData);
+      const result = await saveEmailTemplateSetupAction(formData);
       if (!result.ok) {
         setSaveState({ kind: "error", message: result.error || "Template save failed." });
         return;

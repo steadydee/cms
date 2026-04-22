@@ -3,7 +3,6 @@ import { getPartnersRequestContext } from "@/lib/auth";
 import { CONTACT_STAGE_META } from "@/lib/partners-ui";
 import { getDashboardOverview, getOpsOverview, listPartnerTypeOptions } from "@/lib/services/partners";
 import { QuickAddContact } from "@/components/contacts/quick-add-contact";
-import { EmailTemplateCard } from "@/components/dashboard/email-template-card";
 
 export default async function DashboardPage() {
   const context = await getPartnersRequestContext();
@@ -185,25 +184,16 @@ export default async function DashboardPage() {
         </section>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Email templates</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {ops.templates.map((template) => <EmailTemplateCard key={template.id} template={template} />)}
-          </div>
-        </section>
-
-        <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Source breakdown</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {ops.sourceBreakdown.map((source) => (
-              <span key={source.source} className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
-                {source.source} · {source.count}
-              </span>
-            ))}
-          </div>
-        </section>
-      </div>
+      <section className="rounded-[24px] border border-[#e8e0d4] bg-white p-5 shadow-sm">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Source breakdown</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {ops.sourceBreakdown.map((source) => (
+            <span key={source.source} className="rounded-full bg-[#f3ede4] px-3 py-1.5 text-[12px] font-medium text-[#6b5d4a]">
+              {source.source} · {source.count}
+            </span>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
