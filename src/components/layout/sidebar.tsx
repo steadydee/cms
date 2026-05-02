@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft, FolderKanban, LayoutGrid, Settings2, SquareCheckBig } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EnvironmentBadge } from "@/components/layout/environment-badge";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
@@ -36,14 +37,14 @@ export function Sidebar({
         className="flex items-center gap-3 rounded-2xl border border-sidebar-border bg-sidebar-accent px-3 py-3 transition hover:border-sidebar-primary"
         title="Partners"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-[11px] font-semibold tracking-[0.18em] text-sidebar-primary-foreground">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-[11px] font-semibold tracking-[0.18em] text-sidebar-primary-foreground">
           OW
         </span>
         <span className="min-w-0">
-          <span className="block text-[14px] font-semibold text-white">Partners</span>
+          <span className="block text-[14px] font-semibold text-sidebar-foreground">Partners</span>
           <span className="mt-1 flex items-center gap-2">
             <span className="block text-[11px] text-sidebar-foreground/65">Outreach CRM</span>
-            <EnvironmentBadge environment={environment} className="border-white/10 bg-white/10 text-white/85" />
+            <EnvironmentBadge environment={environment} className="border-[var(--line)] bg-[var(--card)]/10 text-sidebar-foreground" />
           </span>
         </span>
       </Link>
@@ -62,7 +63,7 @@ export function Sidebar({
                 "flex items-center gap-3 rounded-xl px-3 py-3 transition",
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-white"
+                  : "bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
@@ -81,14 +82,15 @@ export function Sidebar({
             {userInitial}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[13px] font-medium text-white">{userName}</span>
+            <span className="block truncate text-[13px] font-medium text-sidebar-foreground">{userName}</span>
             <span className="block truncate text-[11px] text-sidebar-foreground/65">{role}</span>
           </span>
         </div>
+        <ThemeToggle />
         <Link
           href={hubHref}
           title="Back to Hub"
-          className="flex items-center justify-between rounded-2xl border border-sidebar-border bg-sidebar-accent px-3 py-3 text-sidebar-foreground/75 transition hover:text-white"
+          className="flex items-center justify-between rounded-2xl border border-sidebar-border bg-sidebar-accent px-3 py-3 text-sidebar-foreground/75 transition hover:text-sidebar-foreground"
         >
           <span className="text-[13px] font-medium">Back to Hub</span>
           <ArrowLeft className="h-4 w-4 shrink-0" />

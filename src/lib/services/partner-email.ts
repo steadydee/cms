@@ -23,6 +23,7 @@ import {
   type GmailMessage,
 } from "@/lib/gmail";
 import { db } from "@/lib/db";
+import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
 
 const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
 const GMAIL_SYNC_ACTOR_NAME = "Gmail sync";
@@ -598,7 +599,7 @@ export async function sendAccountEmail(
   const organizationId = input.organizationId.trim();
   const toEmail = input.toEmail.trim();
   const subject = input.subject.trim();
-  const body = input.body.replaceAll("\r\n", "\n").trim();
+  const body = normalizeEmailTemplateBody(input.body).trim();
 
   if (!organizationId) {
     throw new Error("Account is required.");

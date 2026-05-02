@@ -43,17 +43,23 @@ function buildBackHref(searchParams: ContactsSearchParams) {
     params.set("query", searchParams.query.trim());
   }
 
-  if (
-    searchParams.stage === "researching"
-    || searchParams.stage === "ready"
-    || searchParams.stage === "outreach_sent"
-    || searchParams.stage === "in_conversation"
-    || searchParams.stage === "active_partner"
-    || searchParams.stage === "dormant"
-  ) {
-    params.set("stage", searchParams.stage);
+  const stage = normalizeStageParam(searchParams.stage);
+  if (stage) {
+    params.set("stage", stage);
   }
 
   const query = params.toString();
   return query ? `/contacts?${query}` : "/contacts";
+}
+
+function normalizeStageParam(value: string | undefined) {
+  if (value === "ready_to_contact") return "ready";
+  return value === "researching"
+    || value === "ready"
+    || value === "outreach_sent"
+    || value === "in_conversation"
+    || value === "active_partner"
+    || value === "dormant"
+    ? value
+    : null;
 }

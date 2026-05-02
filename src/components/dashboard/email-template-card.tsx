@@ -20,7 +20,7 @@ type SaveState = {
 };
 
 const inputClassName =
-  "w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]";
+  "w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]";
 
 function StatusNotice({ state }: { state: SaveState }) {
   if (state.kind === "idle" || !state.message) return null;
@@ -29,8 +29,8 @@ function StatusNotice({ state }: { state: SaveState }) {
     <div
       className={`rounded-lg border px-3 py-2 text-[12px] ${
         state.kind === "error"
-          ? "border-[#f2c8c3] bg-[#fdf0ee] text-[#a03f35]"
-          : "border-[#d3e3d8] bg-[#edf5ef] text-[#305340]"
+          ? "border-[var(--destructive-soft)] bg-[var(--destructive-soft)] text-[var(--destructive)]"
+          : "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent-deep)]"
       }`}
     >
       {state.message}
@@ -68,11 +68,11 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
   }
 
   return (
-    <div className="rounded-xl border border-[#ebe3d8] bg-[#fffdfa] p-4">
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--card)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[13px] font-semibold text-[#2c2416]">{template.name}</p>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-[#9a8e7a]">
+          <p className="text-[13px] font-semibold text-[var(--ink)]">{template.name}</p>
+          <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-[var(--ink-faint)]">
             Placeholders: {"{company}"}, {"{name}"}
           </p>
         </div>
@@ -87,7 +87,7 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
             setSaveState({ kind: "idle" });
             setIsEditing(true);
           }}
-          className="inline-flex items-center gap-2 rounded-lg border border-[#ddd2c4] px-3 py-2 text-[12px] font-medium text-[#6d614d] transition hover:bg-white"
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)] transition hover:bg-[var(--card)]"
         >
           {isEditing ? <X className="h-4 w-4" /> : <Edit3 className="h-4 w-4" />}
           {isEditing ? "Close" : "Edit"}
@@ -106,7 +106,7 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
           >
             <input type="hidden" name="templateId" value={template.id} />
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Subject</label>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Subject</label>
               <input
                 name="subject"
                 value={subject}
@@ -117,7 +117,7 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
               />
             </div>
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Body</label>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Body</label>
               <textarea
                 name="body"
                 value={body}
@@ -131,7 +131,7 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#3d6b4f] px-4 py-2 text-[13px] font-medium text-white disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--accent-contrast)] disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
                 {isPending ? "Saving..." : "Save template"}
@@ -140,7 +140,7 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
                 type="button"
                 onClick={resetForm}
                 disabled={isPending}
-                className="rounded-lg border border-[#ddd2c4] px-4 py-2 text-[13px] font-medium text-[#6d614d] disabled:opacity-60"
+                className="rounded-lg border border-[var(--line)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)] disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -148,8 +148,8 @@ export function EmailTemplateCard({ template }: EmailTemplateCardProps) {
           </form>
         ) : (
           <>
-            <p className="text-[12px] font-medium text-[#6d614d]">{subject}</p>
-            <p className="line-clamp-5 text-[12px] leading-relaxed text-[#8c7e6a] whitespace-pre-wrap">{body}</p>
+            <p className="text-[12px] font-medium text-[var(--ink-soft)]">{subject}</p>
+            <p className="line-clamp-5 text-[12px] leading-relaxed text-[var(--ink-soft)] whitespace-pre-wrap">{body}</p>
           </>
         )}
       </div>

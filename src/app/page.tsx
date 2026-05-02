@@ -10,25 +10,25 @@ export default async function HomePage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-16">
-      <div className="w-full max-w-2xl rounded-[28px] border border-[#ddd6cc] bg-white p-10 shadow-[0_20px_60px_rgba(30,41,59,0.08)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#94a3b8]">
+      <div className="w-full max-w-2xl rounded-[28px] border border-[var(--line)] bg-[var(--card)] p-10 shadow-[var(--shadow)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--ink-faint)]">
           Owl&apos;s Watch Partners
         </p>
-        <h1 className="mt-3 text-[34px] font-semibold tracking-tight text-[#1e293b]">
+        <h1 className="mt-3 text-[34px] font-semibold tracking-tight text-[var(--ink)]">
           Launch this app from Hub
         </h1>
-        <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-[#64748b]">
+        <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-[var(--ink-soft)]">
           Partners is the outreach CRM for operators and agencies. It expects an Owl&apos;s Watch Hub handoff in
           production and uses a local dev fallback outside production.
         </p>
         <div className="mt-8 flex gap-4 text-[14px]">
           <Link
             href={`${process.env.OW_PARTNERS_HUB_URL?.trim() || "http://localhost:3000"}`}
-            className="rounded-lg bg-[#1e293b] px-4 py-2.5 font-medium text-white"
+            className="rounded-lg bg-[var(--ink)] px-4 py-2.5 font-medium text-[var(--accent-contrast)]"
           >
             Back to Hub
           </Link>
-          <Link href="/dashboard" className="rounded-lg border border-[#cbd5e1] px-4 py-2.5 font-medium text-[#334155]">
+          <Link href="/dashboard" className="rounded-lg border border-[var(--line)] px-4 py-2.5 font-medium text-[var(--ink-soft)]">
             Open dashboard
           </Link>
         </div>

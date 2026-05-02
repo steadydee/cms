@@ -35,7 +35,7 @@ import { AccountConversation } from "@/components/contacts/account-conversation"
 type ContactDetailData = NonNullable<Awaited<ReturnType<typeof getContactDetailPage>>>;
 
 const fieldClassName =
-  "w-full rounded-lg border border-[#e8e0d4] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]";
+  "w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]";
 
 const relationshipStatuses: RelationshipStatus[] = [
   "not_contacted",
@@ -106,8 +106,8 @@ function StatusNotice({ state }: { state: SaveState }) {
     <div
       className={`rounded-xl border px-4 py-3 text-[13px] ${
         state.kind === "error"
-          ? "border-[#f2c8c3] bg-[#fdf0ee] text-[#a03f35]"
-          : "border-[#d3e3d8] bg-[#edf5ef] text-[#305340]"
+          ? "border-[var(--destructive-soft)] bg-[var(--destructive-soft)] text-[var(--destructive)]"
+          : "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent-deep)]"
       }`}
     >
       {state.message}
@@ -122,15 +122,15 @@ function StageBadge({ stage }: { stage: ContactDetailData["displayStage"] }) {
 
 function StreamBadge({ type }: { type: ContactDetailData["activityStream"][number]["type"] }) {
   const styles: Record<string, { label: string; className: string }> = {
-    note: { label: "Note", className: "bg-white text-[#3d6b4f] border-[#e8e0d4]" },
-    research: { label: "AI", className: "bg-[#f3eef8] text-[#6b4c8a] border-[#e4daee]" },
-    email: { label: "Email", className: "bg-[#fff3eb] text-[#c4713b] border-[#f0d9c9]" },
-    call: { label: "Call", className: "bg-[#fff3eb] text-[#c4713b] border-[#f0d9c9]" },
-    whatsapp: { label: "WhatsApp", className: "bg-[#edf7ee] text-[#3d6b4f] border-[#d6e8d9]" },
-    visit: { label: "Visit", className: "bg-[#ebf3fa] text-[#2d6fa0] border-[#d8e6f1]" },
-    meeting: { label: "Meeting", className: "bg-[#ebf3fa] text-[#2d6fa0] border-[#d8e6f1]" },
-    other: { label: "Touch", className: "bg-[#fff3eb] text-[#c4713b] border-[#f0d9c9]" },
-    task_done: { label: "Task", className: "bg-[#f5f1ea] text-[#6d614d] border-[#e7ddd0]" },
+    note: { label: "Note", className: "bg-[var(--card)] text-[var(--accent)] border-[var(--line)]" },
+    research: { label: "AI", className: "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--line)]" },
+    email: { label: "Email", className: "bg-[var(--warm-soft)] text-[var(--warm)] border-[var(--warm-soft)]" },
+    call: { label: "Call", className: "bg-[var(--warm-soft)] text-[var(--warm)] border-[var(--warm-soft)]" },
+    whatsapp: { label: "WhatsApp", className: "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent-soft)]" },
+    visit: { label: "Visit", className: "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--line)]" },
+    meeting: { label: "Meeting", className: "bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--line)]" },
+    other: { label: "Touch", className: "bg-[var(--warm-soft)] text-[var(--warm)] border-[var(--warm-soft)]" },
+    task_done: { label: "Task", className: "bg-[var(--line-soft)] text-[var(--ink-soft)] border-[var(--line)]" },
   };
 
   const style = styles[type];
@@ -205,14 +205,14 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
     <div className="space-y-6">
       <StatusNotice state={saveState} />
 
-      <section className="rounded-[20px] border border-[#d8ccb9] bg-white px-6 py-5 shadow-sm">
+      <section className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] px-6 py-5 shadow-[var(--shadow)]">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
           <div className="min-w-0">
-            <Link href={backHref} className="text-[12px] font-medium text-[#8c7e6a]">
+            <Link href={backHref} className="text-[12px] font-medium text-[var(--ink-soft)]">
               ← Back to accounts
             </Link>
-            <h1 className="mt-2 font-serif text-[30px] font-semibold tracking-tight text-[#2c2416]">{contact.name}</h1>
-            <p className="mt-2 text-[14px] text-[#8c7e6a]">
+            <h1 className="mt-2 font-serif text-[30px] font-semibold tracking-tight text-[var(--ink)]">{contact.name}</h1>
+            <p className="mt-2 text-[14px] text-[var(--ink-soft)]">
               {contact.primaryContact
                 ? `${contact.primaryContact.fullName}${contact.primaryContact.roleTitle ? ` · ${contact.primaryContact.roleTitle}` : ""}`
                 : "No primary person yet"}
@@ -236,7 +236,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
               <CardSection title={`People (${contact.contacts.length})`}>
                 <div className="space-y-3">
                   {contact.contacts.map((person) => (
-                    <div key={person.id} className="rounded-xl border border-[#d7cab7] bg-[#fffdfa] p-3">
+                    <div key={person.id} className="rounded-xl border border-[var(--line)] bg-[var(--card)] p-3">
                       {editingPerson === person.id ? (
                         <PersonEditor
                           initialPerson={person}
@@ -254,16 +254,16 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                         />
                       ) : (
                         <button type="button" className="w-full text-left" onClick={() => setEditingPerson(person.id)}>
-                          <div className="text-[13px] font-semibold text-[#2c2416]">
+                          <div className="text-[13px] font-semibold text-[var(--ink)]">
                             {person.fullName}
                             {person.isPrimary ? (
-                              <span className="ml-2 rounded-full bg-[#ebf3ed] px-2 py-0.5 text-[10px] font-medium text-[#3d6b4f]">
+                              <span className="ml-2 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
                                 primary
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-1 text-[12px] text-[#8c7e6a]">{person.roleTitle || "No role title"}</p>
-                          {person.email ? <p className="mt-1 text-[12px] text-[#2d6fa0]">{person.email}</p> : null}
+                          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">{person.roleTitle || "No role title"}</p>
+                          {person.email ? <p className="mt-1 text-[12px] text-[var(--accent)]">{person.email}</p> : null}
                         </button>
                       )}
                     </div>
@@ -271,7 +271,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 </div>
 
                 {showAddPerson ? (
-                  <div className="mt-3 rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] p-3">
+                  <div className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
                     <PersonEditor
                       disabled={isPending}
                       onSubmit={(values) => {
@@ -289,7 +289,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   <button
                     type="button"
                     onClick={() => setShowAddPerson(true)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#c8baaa] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)]"
                   >
                     <Plus className="h-4 w-4" />
                     Add person
@@ -298,7 +298,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
               </CardSection>
 
               <CardSection title="Stage">
-                <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Relationship status</label>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Relationship status</label>
                 <select
                   value={statusValue}
                   onChange={(event) => {
@@ -323,28 +323,28 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StageBadge stage={contact.displayStage} />
               {contact.tags.map((entry) => (
-                <span key={entry.tag.id} className="rounded-full bg-[#f3ede4] px-2.5 py-1 text-[11px] font-medium text-[#6b5d4a]">
+                <span key={entry.tag.id} className="rounded-full bg-[var(--line-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--ink-soft)]">
                   {entry.tag.name}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="w-full rounded-2xl border border-[#f0d9c9] bg-[#fef7f0] p-4 xl:mt-7">
+          <div className="w-full rounded-2xl border border-[var(--warm-soft)] bg-[var(--warm-soft)] p-4 xl:mt-7">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c4713b]">Next action</p>
-                <p className="mt-2 text-[14px] font-medium text-[#2c2416]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--warm)]">Next action</p>
+                <p className="mt-2 text-[14px] font-medium text-[var(--ink)]">
                   {contact.nextActionTask?.title || "No next action set"}
                 </p>
-                <p className="mt-1 text-[12px] text-[#a15d35]">
+                <p className="mt-1 text-[12px] text-[var(--warm)]">
                   {contact.nextActionTask?.dueAt ? `Due ${formatShortDate(contact.nextActionTask.dueAt)}` : "Add a task to keep this visible"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setNextActionMode((value) => !value)}
-                className="rounded-lg border border-[#e7c9b6] bg-white px-3 py-1.5 text-[12px] font-medium text-[#8c5b3f]"
+                className="rounded-lg border border-[var(--warm-soft)] bg-[var(--card)] px-3 py-1.5 text-[12px] font-medium text-[var(--warm)]"
               >
                 {nextActionMode ? "Close" : "Edit"}
               </button>
@@ -372,7 +372,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <section className="space-y-5">
-          <div className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
             <textarea
               value={noteText}
               onChange={(event) => setNoteText(event.target.value)}
@@ -386,10 +386,10 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                 }
               }}
               placeholder="Add an internal note..."
-              className="min-h-[96px] w-full rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] px-4 py-3 text-[14px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+              className="min-h-[96px] w-full rounded-xl border border-[var(--line)] bg-[var(--bg)] px-4 py-3 text-[14px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
             />
             <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[12px] text-[#8c7e6a]">Internal notes stay at the top of the activity stream.</p>
+              <p className="text-[12px] text-[var(--ink-soft)]">Internal notes stay at the top of the activity stream.</p>
               <button
                 type="button"
                 disabled={!noteText.trim() || isPending}
@@ -400,7 +400,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   runAction(saveContactNoteAction, formData, "Note saved.");
                   setNoteText("");
                 }}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#3d6b4f] px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
                 Save note
@@ -410,7 +410,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
 
           <AccountConversation contact={contact} />
 
-          <div className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
             <div className="flex flex-wrap gap-2">
               <ActionButton icon={Phone} label="Call" onClick={() => setLogType("phone")} />
               <ActionButton icon={MessageSquareText} label="WhatsApp" onClick={() => setLogType("whatsapp")} />
@@ -418,10 +418,10 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
 
             {logType ? (
-              <div className="mt-4 rounded-xl border border-[#f0d9c9] bg-[#fff7f0] p-4">
+              <div className="mt-4 rounded-xl border border-[var(--warm-soft)] bg-[var(--warm-soft)] p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-[13px] font-medium text-[#a15d35]">Log {logType === "meeting" ? "visit" : logType}</p>
-                  <button type="button" className="text-[12px] text-[#8c7e6a]" onClick={() => setLogType(null)}>
+                  <p className="text-[13px] font-medium text-[var(--warm)]">Log {logType === "meeting" ? "visit" : logType}</p>
+                  <button type="button" className="text-[12px] text-[var(--ink-soft)]" onClick={() => setLogType(null)}>
                     Close
                   </button>
                 </div>
@@ -429,7 +429,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   value={logText}
                   onChange={(event) => setLogText(event.target.value)}
                   placeholder="What happened?"
-                  className="mt-3 min-h-[88px] w-full rounded-lg border border-[#ead8ca] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#c4713b]"
+                  className="mt-3 min-h-[88px] w-full rounded-lg border border-[var(--warm-soft)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--warm)]"
                 />
                 <button
                   type="button"
@@ -444,7 +444,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                     setLogText("");
                     setLogType(null);
                   }}
-                  className="mt-3 rounded-lg bg-[#c4713b] px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50"
+                  className="mt-3 rounded-lg bg-[var(--warm)] px-4 py-2 text-[13px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
                 >
                   Save touch
                 </button>
@@ -452,29 +452,29 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             ) : null}
           </div>
 
-          <div className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
+          <div className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Activity stream</p>
-                <h2 className="mt-2 font-serif text-[24px] font-semibold text-[#2c2416]">Latest context</h2>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Activity stream</p>
+                <h2 className="mt-2 font-serif text-[24px] font-semibold text-[var(--ink)]">Latest context</h2>
               </div>
             </div>
             <div className="mt-5 space-y-3">
               {contact.activityStream.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#cdbfae] px-4 py-6 text-[13px] text-[#9a8e7a]">
+                <div className="rounded-xl border border-dashed border-[var(--line)] px-4 py-6 text-[13px] text-[var(--ink-faint)]">
                   No activity yet.
                 </div>
               ) : (
                 contact.activityStream.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-[#d9ccb9] bg-[#fffdfa] px-4 py-3">
+                  <div key={item.id} className="rounded-xl border border-[var(--line)] bg-[var(--card)] px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <StreamBadge type={item.type} />
-                        <span className="text-[12px] font-medium text-[#6d614d]">{item.author}</span>
+                        <span className="text-[12px] font-medium text-[var(--ink-soft)]">{item.author}</span>
                       </div>
-                      <span className="text-[11px] text-[#9a8e7a]">{timeAgo(item.happenedAt)}</span>
+                      <span className="text-[11px] text-[var(--ink-faint)]">{timeAgo(item.happenedAt)}</span>
                     </div>
-                    <p className="mt-3 text-[14px] leading-relaxed text-[#2c2416]">{item.text}</p>
+                    <p className="mt-3 text-[14px] leading-relaxed text-[var(--ink)]">{item.text}</p>
                   </div>
                 ))
               )}
@@ -495,7 +495,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                     formData.set("tagId", entry.tag.id);
                     runAction(removeContactTagAction, formData, "Tag removed.");
                   }}
-                  className="rounded-full bg-[#f3ede4] px-2.5 py-1 text-[11px] font-medium text-[#6b5d4a]"
+                  className="rounded-full bg-[var(--line-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--ink-soft)]"
                 >
                   {entry.tag.name} ×
                 </button>
@@ -518,7 +518,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                   runAction(saveContactTagAction, formData, "Tag added.");
                   setTagName("");
                 }}
-                className="rounded-lg bg-[#2c2416] px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50"
+                className="rounded-lg bg-[var(--ink)] px-3 py-2 text-[12px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
               >
                 Add
               </button>
@@ -528,7 +528,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
           <CardSection title={`Tasks (${contact.openTasks.length} open)`}>
             <div className="space-y-3">
               {contact.openTasks.map((task) => (
-                <div key={task.id} className="rounded-xl border border-[#d7cab7] bg-[#fffdfa] p-3">
+                <div key={task.id} className="rounded-xl border border-[var(--line)] bg-[var(--card)] p-3">
                   <label className="flex items-start gap-3">
                     <input
                       type="checkbox"
@@ -540,7 +540,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                         formData.set("status", event.target.checked ? "done" : "open");
                         runAction(setTaskStatusAction, formData, event.target.checked ? "Task completed." : "Task reopened.");
                       }}
-                      className="mt-1 h-4 w-4 rounded border-[#d2c6b7]"
+                      className="mt-1 h-4 w-4 rounded border-[var(--line)]"
                     />
                     <div className="min-w-0 flex-1">
                       {editingTask === task.id ? (
@@ -561,11 +561,11 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                         />
                       ) : (
                         <>
-                          <p className="text-[13px] font-medium text-[#2c2416]">{task.title}</p>
-                          <p className={`mt-1 text-[11px] ${task.isOverdue ? "text-[#c4713b]" : "text-[#8c7e6a]"}`}>
+                          <p className="text-[13px] font-medium text-[var(--ink)]">{task.title}</p>
+                          <p className={`mt-1 text-[11px] ${task.isOverdue ? "text-[var(--warm)]" : "text-[var(--ink-soft)]"}`}>
                             Due {formatShortDate(task.dueAt)}
                           </p>
-                          <button type="button" onClick={() => setEditingTask(task.id)} className="mt-2 text-[11px] font-medium text-[#3d6b4f]">
+                          <button type="button" onClick={() => setEditingTask(task.id)} className="mt-2 text-[11px] font-medium text-[var(--accent)]">
                             Edit
                           </button>
                         </>
@@ -577,7 +577,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
             </div>
 
             {showAddTask ? (
-              <div className="mt-3 rounded-xl border border-[#d8ccb9] bg-[#fdfaf6] p-3">
+              <div className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3">
                 <TaskEditor
                   initialTitle=""
                   initialDueAt=""
@@ -597,7 +597,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
               <button
                 type="button"
                 onClick={() => setShowAddTask(true)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[#c8baaa] px-3 py-2 text-[12px] font-medium text-[#6d614d]"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-dashed border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)]"
               >
                 <Plus className="h-4 w-4" />
                 Add task
@@ -628,8 +628,8 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
               onClick={() => setShowResearch((value) => !value)}
               className="flex w-full items-center justify-between text-left"
             >
-              <span className="text-[13px] font-medium text-[#2c2416]">Market notes and linked findings</span>
-              {showResearch ? <ChevronDown className="h-4 w-4 text-[#8c7e6a]" /> : <ChevronRight className="h-4 w-4 text-[#8c7e6a]" />}
+              <span className="text-[13px] font-medium text-[var(--ink)]">Market notes and linked findings</span>
+              {showResearch ? <ChevronDown className="h-4 w-4 text-[var(--ink-soft)]" /> : <ChevronRight className="h-4 w-4 text-[var(--ink-soft)]" />}
             </button>
             {showResearch ? (
               <div className="mt-3 space-y-3">
@@ -643,16 +643,16 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
                     formData.set("value", event.target.value);
                     runAction(saveContactFieldAction, formData, "Research notes updated.");
                   }}
-                  className="min-h-[120px] w-full rounded-lg border border-[#e8e0d4] bg-[#faf7f2] px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#6b4c8a]"
+                  className="min-h-[120px] w-full rounded-lg border border-[var(--line)] bg-[var(--line-soft)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
                 />
                 <div className="space-y-2">
                   {contact.researchFindings.length === 0 ? (
-                    <p className="text-[12px] text-[#8c7e6a]">No linked research findings yet.</p>
+                    <p className="text-[12px] text-[var(--ink-soft)]">No linked research findings yet.</p>
                   ) : (
                     contact.researchFindings.map((finding) => (
-                      <div key={finding.id} className="rounded-lg border border-[#e4daee] bg-[#f7f2fb] px-3 py-2">
-                        <p className="text-[12px] font-medium text-[#6b4c8a]">{finding.observedName || "Untitled finding"}</p>
-                        <p className="mt-1 text-[12px] text-[#5c5265]">{finding.observedText || "No summary saved."}</p>
+                      <div key={finding.id} className="rounded-lg border border-[var(--line)] bg-[var(--accent-soft)] px-3 py-2">
+                        <p className="text-[12px] font-medium text-[var(--accent)]">{finding.observedName || "Untitled finding"}</p>
+                        <p className="mt-1 text-[12px] text-[var(--ink-soft)]">{finding.observedText || "No summary saved."}</p>
                       </div>
                     ))
                   )}
@@ -664,7 +664,7 @@ export function ContactDetail({ contact, backHref = "/contacts" }: ContactDetail
           <form action={archiveContactAction}>
             <input type="hidden" name="organizationId" value={contact.id} />
             <input type="hidden" name="returnTo" value={`/contacts/${contact.id}`} />
-            <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#f0d9c9] bg-[#fff7f0] px-4 py-3 text-[13px] font-medium text-[#c4713b]">
+            <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--warm-soft)] bg-[var(--warm-soft)] px-4 py-3 text-[13px] font-medium text-[var(--warm)]">
               <Archive className="h-4 w-4" />
               Archive account
             </button>
@@ -688,7 +688,7 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-full border border-[#d8ccb9] bg-[#fffdfa] px-3 py-2 text-[12px] font-medium text-[#5f5547]"
+      className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)]"
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -704,8 +704,8 @@ function CardSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[20px] border border-[#d8ccb9] bg-white p-4 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">{title}</p>
+    <section className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-4 shadow-[var(--shadow)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">{title}</p>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -728,16 +728,16 @@ function EditableField({
   const [value, setValue] = useState(initialValue);
 
   return (
-    <div className="border-b border-[#ded2c2] py-3 last:border-b-0">
+    <div className="border-b border-[var(--line)] py-3 last:border-b-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <Icon className="h-4 w-4 shrink-0 text-[#8c7e6a]" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+          <Icon className="h-4 w-4 shrink-0 text-[var(--ink-soft)]" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-faint)]">{label}</span>
         </div>
         {!editing ? (
           <button
             type="button"
-            className="shrink-0 rounded-md border border-[#d8ccb9] px-2 py-1 text-[11px] font-medium text-[#6d614d]"
+            className="shrink-0 rounded-md border border-[var(--line)] px-2 py-1 text-[11px] font-medium text-[var(--ink-soft)]"
             onClick={() => setEditing(true)}
           >
             Edit
@@ -763,12 +763,12 @@ function EditableField({
                   setEditing(false);
                 }
               }}
-              className="min-w-0 flex-1 rounded-lg border border-[#d8ccb9] bg-[#fdfaf6] px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+              className="min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
             />
             <div className="flex items-center gap-2 sm:shrink-0">
               <button
                 type="button"
-                className="rounded-md bg-[#2c2416] px-3 py-2 text-[11px] font-medium text-white"
+                className="rounded-md bg-[var(--ink)] px-3 py-2 text-[11px] font-medium text-[var(--accent-contrast)]"
                 onClick={() => {
                   setEditing(false);
                   void onSave(value);
@@ -778,7 +778,7 @@ function EditableField({
               </button>
               <button
                 type="button"
-                className="rounded-md border border-[#d8ccb9] px-3 py-2 text-[11px] font-medium text-[#6d614d]"
+                className="rounded-md border border-[var(--line)] px-3 py-2 text-[11px] font-medium text-[var(--ink-soft)]"
                 onClick={() => {
                   setValue(initialValue);
                   setEditing(false);
@@ -790,8 +790,8 @@ function EditableField({
           </div>
         </div>
       ) : (
-        <div className="mt-2 pl-7 text-[15px] text-[#2c2416]">
-          {value || <span className="text-[#aa9c87]">{placeholder}</span>}
+        <div className="mt-2 pl-7 text-[15px] text-[var(--ink)]">
+          {value || <span className="text-[var(--ink-faint)]">{placeholder}</span>}
         </div>
       )}
     </div>
@@ -820,15 +820,15 @@ function AccountDetailsPanel({
   ];
 
   return (
-    <div className="rounded-2xl border border-[#d8ccb9] bg-[#fdfaf6] p-4">
+    <div className="rounded-2xl border border-[var(--line)] bg-[var(--bg)] p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Account details</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Account details</p>
         {editing ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={disabled}
-              className="rounded-md bg-[#2c2416] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50"
+              className="rounded-md bg-[var(--ink)] px-3 py-1.5 text-[11px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
               onClick={() => {
                 setEditing(false);
                 onSave(draft);
@@ -839,7 +839,7 @@ function AccountDetailsPanel({
             <button
               type="button"
               disabled={disabled}
-              className="rounded-md border border-[#d8ccb9] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6d614d] disabled:opacity-50"
+              className="rounded-md border border-[var(--line)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--ink-soft)] disabled:opacity-50"
               onClick={() => {
                 setDraft(values);
                 setEditing(false);
@@ -851,7 +851,7 @@ function AccountDetailsPanel({
         ) : (
           <button
             type="button"
-            className="rounded-md border border-[#d8ccb9] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6d614d]"
+            className="rounded-md border border-[var(--line)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--ink-soft)]"
             onClick={() => setEditing(true)}
           >
             Edit
@@ -861,19 +861,19 @@ function AccountDetailsPanel({
 
       <div className="mt-4 grid gap-x-5 gap-y-3 md:grid-cols-2">
         {fields.map(({ key, label, icon: Icon }) => (
-          <div key={key} className="rounded-xl border border-[#d8ccb9] bg-white/70 px-3 py-3">
+          <div key={key} className="rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 py-3">
             <div className="flex items-center gap-2">
-              <Icon className="h-3.5 w-3.5 shrink-0 text-[#8c7e6a]" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#aa9c87]">{label}</span>
+              <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--ink-soft)]" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-faint)]">{label}</span>
             </div>
             {editing ? (
               <input
                 value={draft[key]}
                 onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
-                className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               />
             ) : (
-              <p className="mt-2 text-[14px] text-[#2c2416]">{values[key] || <span className="text-[#aa9c87]">Add...</span>}</p>
+              <p className="mt-2 text-[14px] text-[var(--ink)]">{values[key] || <span className="text-[var(--ink-faint)]">Add...</span>}</p>
             )}
           </div>
         ))}
@@ -925,7 +925,7 @@ function PersonEditor({
         <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Phone" className={fieldClassName} />
         <input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} placeholder="WhatsApp" className={fieldClassName} />
       </div>
-      <label className="flex items-center gap-2 text-[12px] text-[#6d614d]">
+      <label className="flex items-center gap-2 text-[12px] text-[var(--ink-soft)]">
         <input type="checkbox" checked={isPrimary} onChange={(event) => setIsPrimary(event.target.checked)} />
         Primary contact
       </label>
@@ -934,11 +934,11 @@ function PersonEditor({
           type="button"
           disabled={!fullName.trim() || disabled}
           onClick={() => onSubmit({ fullName, roleTitle, email, phone, whatsapp, isPrimary })}
-          className="rounded-lg bg-[#2c2416] px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-[var(--ink)] px-3 py-2 text-[12px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
         >
           {submitLabel}
         </button>
-        <button type="button" onClick={onClose} className="rounded-lg border border-[#d8ccb9] px-3 py-2 text-[12px] font-medium text-[#6d614d]">
+        <button type="button" onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)]">
           Cancel
         </button>
       </div>
@@ -973,12 +973,12 @@ function TaskEditor({
           type="button"
           disabled={!title.trim() || !dueAt || disabled}
           onClick={() => onSubmit(title, dueAt)}
-          className="rounded-lg bg-[#2c2416] px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-[var(--ink)] px-3 py-2 text-[12px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
         >
           {submitLabel}
         </button>
         {onClose ? (
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#d8ccb9] px-3 py-2 text-[12px] font-medium text-[#6d614d]">
+          <button type="button" onClick={onClose} className="rounded-lg border border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)]">
             Cancel
           </button>
         ) : null}

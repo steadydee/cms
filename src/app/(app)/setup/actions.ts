@@ -50,7 +50,6 @@ export async function saveEmailTemplateSetupAction(formData: FormData): Promise<
 
 export async function savePartnerTypeSetupAction(formData: FormData) {
   const returnTo = String(formData.get("returnTo") ?? "/setup").trim() || "/setup";
-  let destination = returnTo;
 
   try {
     const access = await authorizePartnersAccess("write");
@@ -72,5 +71,5 @@ export async function savePartnerTypeSetupAction(formData: FormData) {
     await setFlashMessage({ type: "error", text: getErrorMessage(error) });
   }
 
-  redirect(destination);
+  redirect(returnTo);
 }

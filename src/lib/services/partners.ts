@@ -10,7 +10,8 @@ import {
 import { db } from "@/lib/db";
 import type { PartnersRequestContext } from "@/lib/auth";
 import { sendEmailWithResend } from "@/lib/email";
-import { getContactStage, type ContactStage } from "@/lib/partners-ui";
+import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
+import { getContactStage, isContactedStage, type ContactStage } from "@/lib/partners-ui";
 import { getMailboxStatus, listOrganizationEmailThreads } from "@/lib/services/partner-email";
 
 export type SavedOrganizationView =
@@ -79,6 +80,9 @@ type OpsStageSnapshot = {
   label: string;
   count: number;
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CONTACT_STAGES = ["researching", "ready", "outreach_sent", "in_conversation", "active_partner", "dormant"] as const;
 
 export type ControlTableKey = "partner_type";
 
@@ -294,7 +298,7 @@ export async function listPartnerTypeOptions(propertyId: string, options?: { inc
     }),
     db.partnerOrganization.groupBy({
       by: ["type"],
-      where: { propertyId },
+      where: { propertyId, archivedAt: null },
       _count: { _all: true },
     }),
   ]);
@@ -608,10 +612,15 @@ export async function getDashboardSummary(propertyId: string) {
 export async function listEmailTemplates(propertyId: string) {
   await ensureDefaultEmailTemplates(propertyId);
 
-  return db.emailTemplate.findMany({
+  const templates = await db.emailTemplate.findMany({
     where: { propertyId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
+
+  return templates.map((template) => ({
+    ...template,
+    body: normalizeEmailTemplateBody(template.body),
+  }));
 }
 
 export async function updateEmailTemplate(
@@ -624,7 +633,7 @@ export async function updateEmailTemplate(
 ) {
   const templateId = input.templateId.trim();
   const subject = input.subject.trim();
-  const body = input.body.trim();
+  const body = normalizeEmailTemplateBody(input.body).trim();
 
   if (!templateId) {
     throw new Error("Template is required.");
@@ -672,9 +681,323 @@ export function renderEmailTemplate(
     subject: template.subject
       .replaceAll("{company}", company)
       .replaceAll("{name}", name),
-    body: template.body
+    body: normalizeEmailTemplateBody(template.body)
       .replaceAll("{company}", company)
       .replaceAll("{name}", name),
+  };
+}
+
+function daysSince(date: Date, now = new Date()) {
+  return Math.max(0, Math.floor((now.getTime() - date.getTime()) / DAY_MS));
+}
+
+function getLatestDate(values: Array<Date | null | undefined>) {
+  return values
+    .filter((value): value is Date => Boolean(value))
+    .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
+}
+
+function mapFirstByOrganization<T extends { organizationId: string }>(rows: T[]) {
+  const byOrganization = new Map<string, T>();
+  for (const row of rows) {
+    if (!byOrganization.has(row.organizationId)) {
+      byOrganization.set(row.organizationId, row);
+    }
+  }
+  return byOrganization;
+}
+
+function mapMaxDateByOrganization<K extends string>(
+  rows: Array<{ organizationId: string; _max: Record<K, Date | null> }>,
+  key: K
+) {
+  const byOrganization = new Map<string, Date>();
+  for (const row of rows) {
+    const value = row._max[key];
+    if (value) {
+      byOrganization.set(row.organizationId, value);
+    }
+  }
+  return byOrganization;
+}
+
+function getLocationText(city?: string | null, country?: string | null) {
+  return [city, country].map((value) => value?.trim()).filter(Boolean).join(", ");
+}
+
+export async function getDashboardPickupOverview(propertyId: string) {
+  const now = new Date();
+  const activeOrganizationWhere = {
+    propertyId,
+    archivedAt: null,
+  };
+
+  const [
+    organizations,
+    latestOutboundEmailRows,
+    latestOutboundTouchRows,
+    outboundTouchGroups,
+    latestInboundEmailRows,
+    latestEmailActivityGroups,
+    latestTouchActivityGroups,
+    latestNoteActivityGroups,
+  ] = await Promise.all([
+    db.partnerOrganization.findMany({
+      where: activeOrganizationWhere,
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        email: true,
+        phone: true,
+        whatsapp: true,
+        country: true,
+        city: true,
+        createdAt: true,
+        updatedAt: true,
+        lastContactedAt: true,
+        contacts: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            whatsapp: true,
+            isPrimary: true,
+            createdAt: true,
+          },
+        },
+        _count: {
+          select: {
+            researchFindings: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: "asc" }, { name: "asc" }],
+    }),
+    db.emailMessage.findMany({
+      where: {
+        direction: "outbound",
+        organization: activeOrganizationWhere,
+      },
+      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        organizationId: true,
+        sentAt: true,
+        subject: true,
+      },
+    }),
+    db.outreachTouch.findMany({
+      where: {
+        channel: "email",
+        direction: "outbound",
+        organization: activeOrganizationWhere,
+      },
+      orderBy: [{ happenedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        organizationId: true,
+        happenedAt: true,
+        subject: true,
+        summary: true,
+      },
+    }),
+    db.outreachTouch.groupBy({
+      by: ["organizationId"],
+      where: {
+        direction: "outbound",
+        organization: activeOrganizationWhere,
+      },
+      _max: { happenedAt: true },
+    }),
+    db.emailMessage.findMany({
+      where: {
+        direction: "inbound",
+        organization: activeOrganizationWhere,
+      },
+      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        organizationId: true,
+        sentAt: true,
+        fromName: true,
+        fromEmail: true,
+      },
+    }),
+    db.emailMessage.groupBy({
+      by: ["organizationId"],
+      where: {
+        organization: activeOrganizationWhere,
+      },
+      _max: { sentAt: true },
+    }),
+    db.outreachTouch.groupBy({
+      by: ["organizationId"],
+      where: {
+        organization: activeOrganizationWhere,
+      },
+      _max: { happenedAt: true },
+    }),
+    db.note.groupBy({
+      by: ["organizationId"],
+      where: {
+        organization: activeOrganizationWhere,
+      },
+      _max: { createdAt: true },
+    }),
+  ]);
+
+  const latestOutboundEmailByOrganization = mapFirstByOrganization(latestOutboundEmailRows);
+  const latestOutboundTouchByOrganization = mapFirstByOrganization(latestOutboundTouchRows);
+  const latestInboundEmailByOrganization = mapFirstByOrganization(latestInboundEmailRows);
+  const latestOutboundTouchAtByOrganization = mapMaxDateByOrganization(outboundTouchGroups, "happenedAt");
+  const latestEmailActivityByOrganization = mapMaxDateByOrganization(latestEmailActivityGroups, "sentAt");
+  const latestTouchActivityByOrganization = mapMaxDateByOrganization(latestTouchActivityGroups, "happenedAt");
+  const latestNoteActivityByOrganization = mapMaxDateByOrganization(latestNoteActivityGroups, "createdAt");
+  const latestOutboundEmailAt = getLatestDate([
+    latestOutboundEmailRows[0]?.sentAt,
+    latestOutboundTouchRows[0]?.happenedAt,
+  ]);
+
+  const accounts = organizations.map((organization) => {
+    const currentStage = getContactStage(organization);
+    const outboundEmail = latestOutboundEmailByOrganization.get(organization.id);
+    const outboundTouch = latestOutboundTouchByOrganization.get(organization.id);
+    const latestOutboundAt = getLatestDate([
+      outboundEmail?.sentAt,
+      outboundTouch?.happenedAt,
+      organization.lastContactedAt,
+    ]);
+    const latestActivityAt = getLatestDate([
+      latestEmailActivityByOrganization.get(organization.id),
+      latestTouchActivityByOrganization.get(organization.id),
+      latestNoteActivityByOrganization.get(organization.id),
+      organization.lastContactedAt,
+      organization.updatedAt,
+    ]);
+    const hasOutboundHistory = Boolean(
+      latestOutboundEmailByOrganization.has(organization.id)
+        || latestOutboundTouchAtByOrganization.has(organization.id)
+        || organization.lastContactedAt
+    );
+    const hasBeenContacted = isContactedStage(currentStage) || hasOutboundHistory;
+    const primaryContact = organization.contacts.find((contact) => contact.isPrimary) ?? organization.contacts[0] ?? null;
+
+    return {
+      id: organization.id,
+      name: organization.name,
+      currentStage,
+      createdAt: organization.createdAt,
+      updatedAt: organization.updatedAt,
+      city: organization.city,
+      country: organization.country,
+      primaryContact,
+      hasBeenContacted,
+      latestOutboundAt,
+      latestOutboundLabel: outboundEmail?.subject?.trim()
+        || outboundTouch?.subject?.trim()
+        || outboundTouch?.summary?.replace(/^Sent\s+/i, "").replace(/\.$/, "").trim()
+        || "email",
+      latestInbound: latestInboundEmailByOrganization.get(organization.id) ?? null,
+      latestActivityAt,
+      hasResearchNotes: organization._count.researchFindings > 0,
+    };
+  });
+
+  const stageCounts = CONTACT_STAGES.reduce((accumulator, stage) => {
+    accumulator[stage] = 0;
+    return accumulator;
+  }, {} as Record<ContactStage, number>);
+  for (const account of accounts) {
+    stageCounts[account.currentStage] += 1;
+  }
+
+  const total = accounts.length;
+  const contacted = accounts.filter((account) => account.hasBeenContacted).length;
+  const activePartner = stageCounts.active_partner;
+  const inMotion = stageCounts.outreach_sent + stageCounts.in_conversation;
+  const notYet = Math.max(0, total - activePartner - inMotion);
+
+  const awaitingReply = accounts
+    .filter((account) => account.currentStage === "outreach_sent" && account.latestOutboundAt)
+    .map((account) => ({
+      ...account,
+      daysQuiet: daysSince(account.latestOutboundAt as Date, now),
+    }))
+    .filter((account) => account.daysQuiet >= 5)
+    .sort((left, right) => right.daysQuiet - left.daysQuiet || left.name.localeCompare(right.name));
+
+  const coolingOff = accounts
+    .filter((account) => account.currentStage === "in_conversation" && account.latestActivityAt)
+    .map((account) => {
+      const activityAt = account.latestActivityAt as Date;
+      const replyAt = account.latestInbound?.sentAt ?? null;
+      return {
+        ...account,
+        activityAt,
+        replyAt,
+        daysSinceActivity: daysSince(activityAt, now),
+        daysSinceReply: replyAt ? daysSince(replyAt, now) : daysSince(activityAt, now),
+      };
+    })
+    .filter((account) => account.daysSinceActivity >= 7)
+    .sort((left, right) => right.daysSinceActivity - left.daysSinceActivity || left.name.localeCompare(right.name));
+
+  const readyToContact = accounts
+    .filter((account) => account.currentStage === "ready")
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime() || left.name.localeCompare(right.name))
+    .map((account) => ({
+      ...account,
+      locationText: getLocationText(account.city, account.country),
+      daysWaiting: daysSince(account.createdAt, now),
+    }));
+
+  return {
+    lastOutboundEmailAt: latestOutboundEmailAt,
+    progress: {
+      total,
+      contacted,
+      remaining: Math.max(0, total - contacted),
+      activePartner,
+      inMotion,
+      notYet,
+      dormant: stageCounts.dormant,
+    },
+    stageCounts,
+    rolodex: accounts.map((account) => {
+      const statePhrase =
+        account.currentStage === "outreach_sent"
+          ? `awaiting reply (${account.latestOutboundAt ? daysSince(account.latestOutboundAt, now) : 0}d)`
+          : account.currentStage === "in_conversation"
+            ? "in conversation"
+            : account.currentStage === "active_partner"
+              ? "active partner"
+              : account.currentStage === "dormant"
+                ? "dormant"
+                : "not yet contacted";
+      const dotState =
+        account.currentStage === "active_partner"
+          ? "active"
+          : account.currentStage === "outreach_sent"
+            || account.currentStage === "in_conversation"
+            || (account.hasBeenContacted && account.currentStage !== "dormant")
+            ? "motion"
+            : "empty";
+
+      return {
+        id: account.id,
+        name: account.name,
+        currentStage: account.currentStage,
+        createdAt: account.createdAt,
+        hasBeenContacted: account.hasBeenContacted,
+        dotState,
+        statePhrase,
+      };
+    }),
+    followUps: {
+      awaitingReply,
+      coolingOff,
+      readyToContact,
+    },
   };
 }
 
@@ -2074,7 +2397,7 @@ export async function sendIntroEmail(
   const messageId = await sendEmailWithResend({
     to: input.recipientEmail.trim(),
     subject: input.subject.trim(),
-    text: input.body,
+    text: normalizeEmailTemplateBody(input.body),
   });
 
   const touch = await logOutreachTouch(context, {

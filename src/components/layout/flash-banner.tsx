@@ -17,17 +17,17 @@ export function FlashBanner({ message }: { message: FlashMessage }) {
 
   return (
     <div
-      className={`mx-6 mt-4 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-[14px] shadow-sm ${
+      className={`mx-6 mt-4 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-[14px] shadow-[var(--shadow)] ${
         message.type === "success"
-          ? "border-[#bbf7d0] bg-[#ecfdf5] text-[#166534]"
-          : "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]"
+          ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent)]"
+          : "border-[var(--destructive-soft)] bg-[var(--destructive-soft)] text-[var(--destructive)]"
       }`}
     >
       <p>{message.text}</p>
       <button
         type="button"
         onClick={() => setVisible(false)}
-        className="rounded-md p-1 opacity-70 transition hover:bg-white/60 hover:opacity-100"
+        className="rounded-md p-1 opacity-70 transition hover:bg-[var(--card)]/60 hover:opacity-100"
         aria-label="Dismiss message"
       >
         <X className="h-4 w-4" />

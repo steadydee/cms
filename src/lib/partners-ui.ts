@@ -14,35 +14,46 @@ export const CONTACT_STAGE_META: Record<
 > = {
   researching: {
     label: "Researching",
-    className: "bg-[#f5f0e8] text-[#8b7355]",
-    cardClassName: "border-[#e8e0d4] bg-white text-[#2c2416]",
+    className: "bg-[var(--line-soft)] text-[var(--ink-soft)]",
+    cardClassName: "border-[var(--line)] bg-[var(--card)] text-[var(--ink)]",
   },
   ready: {
     label: "Ready to Contact",
-    className: "bg-[#f3eef8] text-[#6b4c8a]",
-    cardClassName: "border-[#eadff2] bg-white text-[#2c2416]",
+    className: "bg-[var(--accent-soft)] text-[var(--accent)]",
+    cardClassName: "border-[var(--line)] bg-[var(--card)] text-[var(--ink)]",
   },
   outreach_sent: {
     label: "Outreach Sent",
-    className: "bg-[#fff3eb] text-[#c4713b]",
-    cardClassName: "border-[#f3dccb] bg-[#fffaf6] text-[#2c2416]",
+    className: "bg-[var(--warm-soft)] text-[var(--warm)]",
+    cardClassName: "border-[var(--warm-soft)] bg-[var(--card)] text-[var(--ink)]",
   },
   in_conversation: {
     label: "In Conversation",
-    className: "bg-[#ebf3fa] text-[#2d6fa0]",
-    cardClassName: "border-[#dae6f2] bg-white text-[#2c2416]",
+    className: "bg-[var(--accent-soft)] text-[var(--accent)]",
+    cardClassName: "border-[var(--line)] bg-[var(--card)] text-[var(--ink)]",
   },
   active_partner: {
     label: "Active Partner",
-    className: "bg-[#ebf3ed] text-[#3d6b4f]",
-    cardClassName: "border-[#d3e3d8] bg-white text-[#2c2416]",
+    className: "bg-[var(--accent-soft)] text-[var(--accent)]",
+    cardClassName: "border-[var(--accent-soft)] bg-[var(--card)] text-[var(--ink)]",
   },
   dormant: {
     label: "Dormant",
-    className: "bg-[#f3f1ed] text-[#817563]",
-    cardClassName: "border-[#e6dfd4] bg-white text-[#2c2416]",
+    className: "bg-[var(--line-soft)] text-[var(--ink-soft)]",
+    cardClassName: "border-[var(--line)] bg-[var(--card)] text-[var(--ink)]",
   },
 };
+
+const CONTACTED_STAGES: readonly ContactStage[] = [
+  "outreach_sent",
+  "in_conversation",
+  "active_partner",
+  "dormant",
+];
+
+export function isContactedStage(stage: ContactStage) {
+  return CONTACTED_STAGES.includes(stage);
+}
 
 type OrganizationSignals = {
   status: RelationshipStatus;

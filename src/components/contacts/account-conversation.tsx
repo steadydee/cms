@@ -61,8 +61,8 @@ function StatusNotice({ state }: { state: SaveState }) {
     <div
       className={`rounded-xl border px-4 py-3 text-[13px] ${
         state.kind === "error"
-          ? "border-[#f2c8c3] bg-[#fdf0ee] text-[#a03f35]"
-          : "border-[#d3e3d8] bg-[#edf5ef] text-[#305340]"
+          ? "border-[var(--destructive-soft)] bg-[var(--destructive-soft)] text-[var(--destructive)]"
+          : "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent-deep)]"
       }`}
     >
       {state.message}
@@ -82,16 +82,16 @@ function MessageBubble({
     <div className="px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8c7e6a]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-soft)]">
             {outbound ? "Sent" : "Reply"}
           </p>
-          <p className="mt-2 text-[14px] font-medium text-[#2c2416]">
+          <p className="mt-2 text-[14px] font-medium text-[var(--ink)]">
             {outbound ? `To ${toEmails || "recipient"}` : `From ${message.fromEmail || "sender"}`}
           </p>
         </div>
-        <p className="whitespace-nowrap text-[12px] text-[#8c7e6a]">{formatDateTime(message.sentAt)}</p>
+        <p className="whitespace-nowrap text-[12px] text-[var(--ink-soft)]">{formatDateTime(message.sentAt)}</p>
       </div>
-      <div className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[#2c2416]">
+      <div className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-[var(--ink)]">
         {message.bodyText}
       </div>
     </div>
@@ -224,20 +224,20 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   }
 
   return (
-    <section className="rounded-[20px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
+    <section className="rounded-[20px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Conversation</p>
-          <h2 className="mt-2 font-serif text-[24px] font-semibold text-[#2c2416]">Email threads and replies</h2>
-          <p className="mt-2 max-w-[720px] text-[13px] leading-relaxed text-[#8c7e6a]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Conversation</p>
+          <h2 className="mt-2 font-serif text-[24px] font-semibold text-[var(--ink)]">Email threads and replies</h2>
+          <p className="mt-2 max-w-[720px] text-[13px] leading-relaxed text-[var(--ink-soft)]">
             Send 1:1 partner outreach from the connected Gmail inbox. Replies sync back into this account so the thread stays visible here and in Gmail.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#d7cab7] bg-[#fdfaf6] px-4 py-3 text-[12px] text-[#6d614d]">
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--bg)] px-4 py-3 text-[12px] text-[var(--ink-soft)]">
           {contact.mailbox.connected ? (
             <>
-              <p className="font-medium text-[#2c2416]">{contact.mailbox.connectedEmail}</p>
+              <p className="font-medium text-[var(--ink)]">{contact.mailbox.connectedEmail}</p>
               <p className="mt-1">
                 {contact.mailbox.lastSyncedAt
                   ? `Last synced ${formatDateTime(contact.mailbox.lastSyncedAt)}`
@@ -266,7 +266,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               formData.set("organizationId", contact.id);
               runAction(syncMailboxAction, formData, "Inbox synced. Latest Gmail messages were checked for this account.");
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#cdbfae] px-4 py-2 text-[13px] font-medium text-[#6d614d] disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)] disabled:opacity-60"
           >
             <RefreshCw className="h-4 w-4" />
             {isPending ? "Syncing..." : "Sync inbox"}
@@ -274,8 +274,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
         ) : (
           <Link
             href={`/auth/gmail/connect?returnTo=${encodeURIComponent(conversationReturnTo)}`}
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium text-white ${
-              contact.mailbox.configured ? "bg-[#3d6b4f]" : "bg-[#b7b1a7] pointer-events-none"
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium text-[var(--accent-contrast)] ${
+              contact.mailbox.configured ? "bg-[var(--accent)]" : "bg-[var(--ink-faint)] pointer-events-none"
             }`}
           >
             <Mail className="h-4 w-4" />
@@ -286,7 +286,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
         <button
           type="button"
           onClick={openNewDraft}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#f3ede4] px-4 py-2 text-[13px] font-medium text-[#6b5d4a]"
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--line-soft)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)]"
         >
           <Inbox className="h-4 w-4" />
           New email
@@ -296,7 +296,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
           <button
             type="button"
             onClick={replyToThread}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#cdbfae] px-4 py-2 text-[13px] font-medium text-[#6d614d]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)]"
           >
             <Reply className="h-4 w-4" />
             Reply to thread
@@ -305,21 +305,21 @@ export function AccountConversation({ contact }: AccountConversationProps) {
       </div>
 
       {contact.mailbox.lastSyncError ? (
-        <div className="mt-4 rounded-xl border border-[#f2c8c3] bg-[#fdf0ee] px-4 py-3 text-[13px] text-[#a03f35]">
+        <div className="mt-4 rounded-xl border border-[var(--destructive-soft)] bg-[var(--destructive-soft)] px-4 py-3 text-[13px] text-[var(--destructive)]">
           Gmail sync error: {contact.mailbox.lastSyncError}
         </div>
       ) : null}
 
       <div className="mt-6 space-y-5">
-        <div className="overflow-hidden rounded-2xl border border-[#d7cab7] bg-[#fcfaf7]">
+        <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line-soft)]">
           <div className="flex items-center justify-between gap-3">
-            <p className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Threads</p>
-            <span className="px-4 py-3 text-[11px] text-[#8c7e6a]">{contact.emailThreads.length}</span>
+            <p className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Threads</p>
+            <span className="px-4 py-3 text-[11px] text-[var(--ink-soft)]">{contact.emailThreads.length}</span>
           </div>
 
-          <div className="border-t border-[#d7cab7]">
+          <div className="border-t border-[var(--line)]">
             {contact.emailThreads.length === 0 ? (
-              <div className="px-4 py-5 text-[12px] leading-relaxed text-[#8c7e6a]">
+              <div className="px-4 py-5 text-[12px] leading-relaxed text-[var(--ink-soft)]">
                 No synced email threads yet. Connect Gmail, send the first message, then sync replies here.
               </div>
             ) : (
@@ -331,24 +331,24 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     setActiveThreadId(thread.id);
                     setSaveState({ kind: "idle" });
                   }}
-                  className={`grid w-full grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] items-center gap-3 border-t border-[#d7cab7] px-4 py-3 text-left transition first:border-t-0 ${
+                  className={`grid w-full grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] items-center gap-3 border-t border-[var(--line)] px-4 py-3 text-left transition first:border-t-0 ${
                     activeThreadId === thread.id
-                      ? "bg-[#eef5f0]"
-                      : "bg-white hover:bg-[#faf7f2]"
+                      ? "bg-[var(--accent-soft)]"
+                      : "bg-[var(--card)] hover:bg-[var(--line-soft)]"
                   }`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium text-[#2c2416]">
+                    <p className="truncate text-[13px] font-medium text-[var(--ink)]">
                       {thread.contact?.fullName || contact.name}
                     </p>
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] text-[#2c2416]">
+                    <p className="truncate text-[13px] text-[var(--ink)]">
                       <span className="font-medium">{thread.subject || "Untitled thread"}</span>
-                      <span className="text-[#8c7e6a]">{" — "}{thread.snippet || "No preview"}</span>
+                      <span className="text-[var(--ink-soft)]">{" — "}{thread.snippet || "No preview"}</span>
                     </p>
                   </div>
-                  <p className="whitespace-nowrap text-[11px] text-[#9a8e7a]">
+                  <p className="whitespace-nowrap text-[11px] text-[var(--ink-faint)]">
                     {formatInboxTime(thread.lastMessageAt)}
                   </p>
                 </button>
@@ -359,8 +359,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
 
         <div className="space-y-5">
           {activeThread ? (
-            <div className="overflow-hidden rounded-2xl border border-[#d7cab7] bg-white">
-              <div className="max-h-[520px] overflow-y-auto divide-y divide-[#d7cab7]">
+            <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)]">
+              <div className="max-h-[520px] overflow-y-auto divide-y divide-[var(--line)]">
                 {activeThread.messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
@@ -368,16 +368,16 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-[#d7cab7] bg-white p-4">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)] p-4">
             <div className="flex items-center gap-2">
-              <WandSparkles className="h-4 w-4 text-[#c4713b]" />
-              <p className="text-[13px] font-medium text-[#2c2416]">
+              <WandSparkles className="h-4 w-4 text-[var(--warm)]" />
+              <p className="text-[13px] font-medium text-[var(--ink)]">
                 {activeThread ? "Reply composer" : "Email composer"}
               </p>
             </div>
 
             <div className="mt-4">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Template</label>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Template</label>
               <select
                 value={selectedTemplateId}
                 onChange={(event) => {
@@ -403,7 +403,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     setActiveThreadId("");
                   }
                 }}
-                className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               >
                 <option value="">No template</option>
                 {contact.emailTemplates.map((template) => (
@@ -416,11 +416,11 @@ export function AccountConversation({ contact }: AccountConversationProps) {
 
             <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Saved recipient</label>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Saved recipient</label>
                 <select
                   value={currentRecipientKey}
                   onChange={(event) => applyRecipient(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                  className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
                 >
                   <option value="">Custom address</option>
                   {recipientOptions.map((option) => (
@@ -432,35 +432,35 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">To</label>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">To</label>
                 <input
                   value={toEmail}
                   onChange={(event) => setToEmail(event.target.value)}
                   placeholder="partner@example.com"
-                  className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                  className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
                 />
               </div>
             </div>
 
-            <p className="mt-2 text-[12px] text-[#8c7e6a]">
+            <p className="mt-2 text-[12px] text-[var(--ink-soft)]">
               Edit canonical account or person emails in the right rail if you want this address saved permanently.
             </p>
 
             <div className="mt-4">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Subject</label>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Subject</label>
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               />
             </div>
 
             <div className="mt-4">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">Body</label>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Body</label>
               <textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
-                className="mt-2 min-h-[220px] w-full rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="mt-2 min-h-[220px] w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               />
             </div>
 
@@ -487,7 +487,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     }
                   );
                 }}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#3d6b4f] px-4 py-2 text-[13px] font-medium text-white disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--accent-contrast)] disabled:opacity-60"
               >
                 <Send className="h-4 w-4" />
                 {isPending ? "Sending..." : "Send via Gmail"}

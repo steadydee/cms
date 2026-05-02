@@ -3,19 +3,19 @@ import { cn } from "@/lib/utils";
 const ENV_META: Record<string, { label: string; className: string }> = {
   production: {
     label: "Production",
-    className: "border-[#cfe5db] bg-[#eef8f3] text-[#0f766e]",
+    className: "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent)]",
   },
   test: {
     label: "Test",
-    className: "border-[#f0d9c9] bg-[#fff4eb] text-[#c4713b]",
+    className: "border-[var(--warm-soft)] bg-[var(--warm-soft)] text-[var(--warm)]",
   },
   preview: {
     label: "Preview",
-    className: "border-[#d8dee9] bg-[#f8fafc] text-[#475569]",
+    className: "border-[var(--line)] bg-[var(--card)] text-[var(--ink-soft)]",
   },
   development: {
     label: "Local",
-    className: "border-[#ddd6cc] bg-[#f8f5f0] text-[#6b5d4a]",
+    className: "border-[var(--line)] bg-[var(--line-soft)] text-[var(--ink-soft)]",
   },
 };
 
@@ -30,9 +30,11 @@ export function EnvironmentBadge({
   environment: string;
   className?: string;
 }) {
+  if (environment === "production") return null;
+
   const meta = ENV_META[environment] ?? {
     label: environment.replace(/[_-]+/g, " "),
-    className: "border-[#d8dee9] bg-[#f8fafc] text-[#475569]",
+    className: "border-[var(--line)] bg-[var(--card)] text-[var(--ink-soft)]",
   };
 
   return (

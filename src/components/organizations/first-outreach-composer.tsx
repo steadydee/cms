@@ -47,22 +47,22 @@ export function FirstOutreachComposer({
       <input type="hidden" name="returnTo" value={returnTo} />
 
       <div>
-        <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template subject</label>
+        <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[var(--ink-faint)]">Template subject</label>
         <input
           name="subject"
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-[#d7d2c9] bg-white px-3 py-2.5 text-[14px] text-[#1e293b] outline-none transition focus:border-[#3b82f6]"
+          className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 py-2.5 text-[14px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
         />
       </div>
 
       <div>
-        <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[#94a3b8]">Template body</label>
+        <label className="text-[12px] font-medium uppercase tracking-[0.16em] text-[var(--ink-faint)]">Template body</label>
         <textarea
           name="body"
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          className="mt-2 min-h-52 w-full rounded-xl border border-[#d7d2c9] bg-white px-3 py-2.5 text-[14px] text-[#1e293b] outline-none transition focus:border-[#3b82f6]"
+          className="mt-2 min-h-52 w-full rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 py-2.5 text-[14px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
         />
       </div>
 
@@ -71,8 +71,8 @@ export function FirstOutreachComposer({
           type="submit"
           formAction={sendIntroEmailAction}
           disabled={!recipientEmail || !resendConfigured}
-          className={`rounded-lg px-4 py-2.5 text-[14px] font-medium text-white ${
-            recipientEmail && resendConfigured ? "bg-[#0f766e]" : "bg-[#cbd5e1]"
+          className={`rounded-lg px-4 py-2.5 text-[14px] font-medium text-[var(--accent-contrast)] ${
+            recipientEmail && resendConfigured ? "bg-[var(--accent)]" : "bg-[var(--line)]"
           }`}
         >
           Send with Resend
@@ -81,7 +81,7 @@ export function FirstOutreachComposer({
         {mailToHref ? (
           <a
             href={mailToHref}
-            className="rounded-lg border border-[#0f766e] px-4 py-2.5 text-[14px] font-medium text-[#0f766e]"
+            className="rounded-lg border border-[var(--accent)] px-4 py-2.5 text-[14px] font-medium text-[var(--accent)]"
           >
             Open in email app
           </a>
@@ -89,7 +89,7 @@ export function FirstOutreachComposer({
           <button
             type="button"
             disabled
-            className="rounded-lg border border-[#cbd5e1] px-4 py-2.5 text-[14px] font-medium text-[#94a3b8]"
+            className="rounded-lg border border-[var(--line)] px-4 py-2.5 text-[14px] font-medium text-[var(--ink-faint)]"
           >
             Open in email app
           </button>
@@ -101,8 +101,8 @@ export function FirstOutreachComposer({
           disabled={!recipientEmail}
           className={`rounded-lg px-4 py-2.5 text-[14px] font-medium ${
             recipientEmail
-              ? "border border-[#1e293b] text-[#1e293b]"
-              : "border border-[#cbd5e1] text-[#94a3b8]"
+              ? "border border-[var(--ink)] text-[var(--ink)]"
+              : "border border-[var(--line)] text-[var(--ink-faint)]"
           }`}
         >
           Log manual send

@@ -30,7 +30,7 @@ export default async function ContactsPage({
         items={items}
         searchParams={{
           query: resolvedSearchParams.query || "",
-          stage: resolvedSearchParams.stage || "all",
+          stage: parseStage(resolvedSearchParams.stage),
         }}
         typeOptions={typeOptions}
       />
@@ -41,10 +41,11 @@ export default async function ContactsPage({
 function parseStage(value: string | undefined) {
   return value === "researching"
     || value === "ready"
+    || value === "ready_to_contact"
     || value === "outreach_sent"
     || value === "in_conversation"
     || value === "active_partner"
     || value === "dormant"
-    ? value
+    ? value === "ready_to_contact" ? "ready" : value
     : "all";
 }

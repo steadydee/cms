@@ -55,15 +55,15 @@ export function PartnerTypeTable({ rows }: PartnerTypeTableProps) {
   );
 
   return (
-    <form action={savePartnerTypeSetupAction} className="rounded-[24px] border border-[#d8ccb9] bg-white p-5 shadow-sm">
+    <form action={savePartnerTypeSetupAction} className="rounded-[24px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
       <input type="hidden" name="returnTo" value="/setup" />
       <input type="hidden" name="rowsJson" value={rowsJson} />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Control table</p>
-          <h2 className="mt-2 font-serif text-[24px] font-semibold text-[#2c2416]">Account types</h2>
-          <p className="mt-2 max-w-[720px] text-[13px] leading-relaxed text-[#8c7e6a]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Control table</p>
+          <h2 className="mt-2 font-serif text-[24px] font-semibold text-[var(--ink)]">Account types</h2>
+          <p className="mt-2 max-w-[720px] text-[13px] leading-relaxed text-[var(--ink-soft)]">
             These values drive the `type` field across the CRM. Edit labels, rename stored values, add new rows, or deactivate types you no longer want used for new accounts.
           </p>
         </div>
@@ -83,29 +83,29 @@ export function PartnerTypeTable({ rows }: PartnerTypeTableProps) {
                 },
               ])
             }
-            className="inline-flex items-center gap-2 rounded-lg border border-[#d8ccb9] bg-[#fdfaf6] px-4 py-2 text-[13px] font-medium text-[#6d614d]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--bg)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)]"
           >
             <Plus className="h-4 w-4" />
             Add row
           </button>
           <button
             type="submit"
-            className="inline-flex items-center rounded-lg bg-[#2c2416] px-4 py-2 text-[13px] font-medium text-white"
+            className="inline-flex items-center rounded-lg bg-[var(--ink)] px-4 py-2 text-[13px] font-medium text-[var(--accent-contrast)]"
           >
             Save types
           </button>
         </div>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-[#d8ccb9]">
-        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_110px_90px] gap-3 border-b border-[#d8ccb9] bg-[#fdfaf6] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7e6a]">
+      <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--line)]">
+        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_110px_90px] gap-3 border-b border-[var(--line)] bg-[var(--bg)] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">
           <span>Label</span>
           <span>Value</span>
           <span>Usage</span>
           <span>Active</span>
         </div>
 
-        <div className="divide-y divide-[#ded2c2]">
+        <div className="divide-y divide-[var(--line)]">
           {draftRows.map((row, index) => (
             <div key={row.clientId} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_110px_90px] gap-3 px-4 py-3">
               <input
@@ -118,7 +118,7 @@ export function PartnerTypeTable({ rows }: PartnerTypeTableProps) {
                   )
                 }
                 placeholder="Birding operator"
-                className="rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               />
               <input
                 value={row.value}
@@ -130,12 +130,12 @@ export function PartnerTypeTable({ rows }: PartnerTypeTableProps) {
                   )
                 }
                 placeholder="birding_operator"
-                className="rounded-lg border border-[#d8ccb9] bg-white px-3 py-2 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+                className="rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               />
-              <div className="flex items-center text-[13px] text-[#6d614d]">
+              <div className="flex items-center text-[13px] text-[var(--ink-soft)]">
                 {row.usageCount} accounts
               </div>
-              <label className="flex items-center gap-2 text-[13px] text-[#6d614d]">
+              <label className="flex items-center gap-2 text-[13px] text-[var(--ink-soft)]">
                 <input
                   type="checkbox"
                   checked={row.isActive}
@@ -146,7 +146,7 @@ export function PartnerTypeTable({ rows }: PartnerTypeTableProps) {
                       )
                     )
                   }
-                  className="h-4 w-4 rounded border-[#d2c6b7]"
+                  className="h-4 w-4 rounded border-[var(--line)]"
                 />
                 On
               </label>
@@ -155,7 +155,7 @@ export function PartnerTypeTable({ rows }: PartnerTypeTableProps) {
         </div>
       </div>
 
-      <p className="mt-3 text-[12px] text-[#8c7e6a]">
+      <p className="mt-3 text-[12px] text-[var(--ink-soft)]">
         Renaming a stored value updates existing accounts using that type. Deactivating a type keeps old accounts readable but removes it from new-account forms.
       </p>
     </form>

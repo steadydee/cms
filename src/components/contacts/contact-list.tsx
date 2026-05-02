@@ -40,14 +40,14 @@ export function ContactList({
   typeOptions: ControlTableOption[];
 }) {
   return (
-    <section className={`rounded-[22px] border border-[#d8ccb9] bg-white shadow-sm ${compact ? "h-full" : ""}`}>
-      <div className={`border-b border-[#ded2c2] ${compact ? "px-4 py-4" : "px-6 py-5"}`}>
+    <section className={`rounded-[22px] border border-[var(--line)] bg-[var(--card)] shadow-[var(--shadow)] ${compact ? "h-full" : ""}`}>
+      <div className={`border-b border-[var(--line)] ${compact ? "px-4 py-4" : "px-6 py-5"}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c7e6a]">Directory</p>
-            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[#2c2416]">Accounts</h1>
-            <p className="mt-2 text-[13px] text-[#8c7e6a]">{items.length} matching accounts</p>
-            <p className="mt-1 text-[12px] text-[#9a8e7a]">Each account is one operator or agency. Add people and outreach from the detail page.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Directory</p>
+            <h1 className="mt-2 font-serif text-[28px] font-semibold tracking-tight text-[var(--ink)]">Accounts</h1>
+            <p className="mt-2 text-[13px] text-[var(--ink-soft)]">{items.length} matching accounts</p>
+            <p className="mt-1 text-[12px] text-[var(--ink-faint)]">Each account is one operator or agency. Add people and outreach from the detail page.</p>
           </div>
           <QuickAddContact compact returnTo="/contacts" typeOptions={typeOptions} />
         </div>
@@ -57,7 +57,7 @@ export function ContactList({
             name="query"
             defaultValue={searchParams.query || ""}
             placeholder="Search account, tag, location, or person"
-            className="w-full rounded-lg border border-[#d8ccb9] bg-[#fdfaf6] px-3 py-2.5 text-[13px] text-[#2c2416] outline-none transition focus:border-[#3d6b4f]"
+            className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] px-3 py-2.5 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
           />
           {searchParams.stage && searchParams.stage !== "all" ? <input type="hidden" name="stage" value={searchParams.stage} /> : null}
         </form>
@@ -74,7 +74,7 @@ export function ContactList({
                 key={filter.value}
                 href={href}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-medium ${
-                  isActive ? "bg-[#2c2416] text-white" : "bg-[#f3ede4] text-[#6b5d4a]"
+                  isActive ? "bg-[var(--ink)] text-[var(--accent-contrast)]" : "bg-[var(--line-soft)] text-[var(--ink-soft)]"
                 }`}
               >
                 {filter.label}
@@ -86,7 +86,7 @@ export function ContactList({
 
       <div className={`${compact ? "max-h-[calc(100vh-260px)] overflow-y-auto p-3" : "p-4"} space-y-2`}>
         {items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[#cdbfae] px-4 py-6 text-[13px] text-[#9a8e7a]">
+          <div className="rounded-xl border border-dashed border-[var(--line)] px-4 py-6 text-[13px] text-[var(--ink-faint)]">
             No accounts match this view.
           </div>
         ) : (
@@ -99,13 +99,13 @@ export function ContactList({
                 key={item.id}
                 href={`/contacts/${item.id}`}
                 className={`block rounded-xl border px-4 py-3 transition ${
-                  isSelected ? "border-[#3d6b4f] bg-[#ebf3ed]" : "border-[#dbcfbe] bg-[#fffdfa] hover:bg-[#faf7f2]"
+                  isSelected ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--line)] bg-[var(--card)] hover:bg-[var(--line-soft)]"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[14px] font-semibold text-[#2c2416]">{item.name}</p>
-                    <p className="mt-1 text-[12px] text-[#8c7e6a]">
+                    <p className="truncate text-[14px] font-semibold text-[var(--ink)]">{item.name}</p>
+                    <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
                       {item.primaryPerson?.fullName || "No primary person"}
                       {(item.city || item.country) ? ` · ${[item.city, item.country].filter(Boolean).join(", ")}` : ""}
                     </p>
@@ -116,14 +116,14 @@ export function ContactList({
                 </div>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {item.tagNames.slice(0, 3).map((tag) => (
-                    <span key={tag} className="rounded-full bg-[#f3ede4] px-2 py-0.5 text-[10px] font-medium text-[#6b5d4a]">
+                    <span key={tag} className="rounded-full bg-[var(--line-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--ink-soft)]">
                       {tag}
                     </span>
                   ))}
                 </div>
-                <div className="mt-3 text-[11px] text-[#8c7e6a]">
+                <div className="mt-3 text-[11px] text-[var(--ink-soft)]">
                   {item.nextActionTask?.dueAt ? (
-                    <span className={item.nextActionIsOverdue ? "text-[#c4713b]" : undefined}>
+                    <span className={item.nextActionIsOverdue ? "text-[var(--warm)]" : undefined}>
                       {item.nextActionTask.title} · {item.nextActionTask.dueAt.toLocaleDateString()}
                     </span>
                   ) : (
