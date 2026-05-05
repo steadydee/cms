@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getPartnersRequestContext } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
-import { AccessDenied } from "@/components/layout/access-denied";
 import { FlashBanner } from "@/components/layout/flash-banner";
 import { EnvironmentBadge, getEnvironmentName } from "@/components/layout/environment-badge";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { getFlashMessage } from "@/lib/flash";
+import { getHubBaseUrl, getHubLaunchUrl } from "@/lib/hub-url";
 
 export default async function AppLayout({
   children,
@@ -17,10 +18,10 @@ export default async function AppLayout({
     getFlashMessage(),
   ]);
   if (!context) {
-    return <AccessDenied message="Launch Partners from Owl's Watch Hub to start an employee session." />;
+    redirect(getHubLaunchUrl("partners"));
   }
 
-  const hubHref = process.env.OW_PARTNERS_HUB_URL?.trim() || "http://localhost:3000";
+  const hubHref = getHubBaseUrl();
   const environment = getEnvironmentName();
 
   return (
