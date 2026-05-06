@@ -72,12 +72,26 @@ The current app expects these variables:
 - `OW_MODULE_HANDOFF_SECRET`: Hub-to-Partners handoff verification secret
 - `OW_AGENT_TOKEN_SECRET`: shared secret used to verify Hub-issued machine tokens for `aud: "partners"`
 - `OW_INTERNAL_SHARED_SECRET`: shared shell-context secret for Hub and internal runtime calls
+- `CRON_SECRET`: production-only bearer token Vercel Cron sends to protected scheduled routes
+- `BACKUP_READ_WRITE_TOKEN`: production-only Vercel Blob read/write token for private database backup storage
+- `BACKUP_DATABASE_SCHEMA`: optional Postgres schema override for backups; defaults to the `schema` query param in `DATABASE_URL`, then `public`
 - `GOOGLE_CLIENT_ID`: Google OAuth client id for Gmail connection
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret for Gmail connection
 - `OW_PARTNERS_GMAIL_TOKEN_SECRET`: encryption/signing secret for stored Gmail refresh tokens and OAuth state
 - `RESEND_API_KEY`: optional, only for legacy or future broadcast/system sends
 - `OW_PARTNERS_EMAIL_FROM`: optional legacy sender, for example `info@owlswatch.com`
 - `OW_PARTNERS_EMAIL_REPLY_TO`: optional legacy reply target, for example `info@owlswatch.com`
+
+## Production backups
+
+Partners has a production-only Vercel Cron job configured in `vercel.json`.
+
+- Schedule: `40 8 * * *` (08:40 UTC daily, 03:40 Colombia time)
+- Route: `GET /api/cron/backups/cms`
+- Auth: `Authorization: Bearer $CRON_SECRET`
+- Output: compressed private JSON snapshots in the `partners-backups` Vercel Blob store under `backups/partners/{yyyy}/{mm}/{dd}/`
+
+The backup route exports every base table in the selected Postgres schema and uploads a `.json.gz` artifact to Vercel Blob. Preview/test deployments refuse to run the backup when `VERCEL_ENV` is not `production`.
 
 Recommended account email setup:
 
