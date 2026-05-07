@@ -16,6 +16,11 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Partners",
   description: "Partners CRM for operators, agencies, and outreach tasks.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

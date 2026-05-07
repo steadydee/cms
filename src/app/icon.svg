@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Owl's Watch CMS">
+  <rect width="64" height="64" rx="14" fill="#1e3a8a"/>
+  <path d="M17 28c0-9.4 6.6-17 15-17s15 7.6 15 17v10c0 8.3-6.7 15-15 15s-15-6.7-15-15V28Z" fill="#ffffff"/>
+  <path d="M18 21 12 13l12 3m22 5 6-8-12 3" fill="#ffffff"/>
+  <circle cx="25" cy="31" r="8" fill="#eff6ff"/>
+  <circle cx="39" cy="31" r="8" fill="#eff6ff"/>
+  <circle cx="25" cy="31" r="3.2" fill="#1e3a8a"/>
+  <circle cx="39" cy="31" r="3.2" fill="#1e3a8a"/>
+  <path d="M32 36 27 42h10l-5-6Z" fill="#f59e0b"/>
+  <path d="M23 47c2.4 1.8 5.5 2.8 9 2.8s6.6-1 9-2.8" fill="none" stroke="#1e3a8a" stroke-width="3" stroke-linecap="round"/>
+</svg>
