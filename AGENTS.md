@@ -10,10 +10,12 @@ Non-negotiables:
 
 - Dennis does not run or review local builds.
 - Do not use localhost as the final validation path.
-- Use deployed Vercel test environments for UAT when available.
+- If a Vercel test environment exists, deploy the current candidate there and complete UAT there before production.
+- Do not treat a stale test deployment as valid UAT; test must contain the code being shipped.
+- If no test environment exists, stop and state that gap before any production-impacting step unless Dennis explicitly approves the risk.
 - After relevant tests and UAT pass, commit and push to `origin/main`.
 - If production does not update automatically, deploy or promote production and verify the live URL.
-- Final responses must state what was tested, where it was tested, what was pushed, and whether production is live.
+- Final responses must state what was tested, where it was tested, the test deployment URL, what was pushed, and whether production is live.
 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
