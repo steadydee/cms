@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Inbox, Mail, RefreshCw, Reply, Send, WandSparkles } from "lucide-react";
+import { Inbox, Mail, Paperclip, RefreshCw, Reply, Send, WandSparkles, X } from "lucide-react";
 import { sendAccountEmailAction, syncMailboxAction } from "@/app/(app)/contacts/actions";
 import type { getContactDetailPage } from "@/lib/services/partners";
 
@@ -24,6 +24,8 @@ type RecipientOption = {
   email: string;
   contactId?: string;
 };
+
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 function mergeTemplate(body: string, subject: string, company: string, name: string) {
   return {
@@ -52,6 +54,11 @@ function formatInboxTime(date: Date | string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function formatAttachmentSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function StatusNotice({ state }: { state: SaveState }) {
@@ -100,9 +107,9 @@ function MessageBubble({
 
 export function AccountConversation({ contact }: AccountConversationProps) {
   const router = useRouter();
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
-  const defaultTemplate = contact.emailTemplates[0] ?? null;
 
   const recipientOptions = useMemo<RecipientOption[]>(() => {
     const options: RecipientOption[] = [];
@@ -153,6 +160,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   const [contactId, setContactId] = useState(defaultRecipient?.contactId ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
 
   const activeThread = contact.emailThreads.find((thread) => thread.id === activeThreadId) ?? null;
   const currentRecipientKey = recipientOptions.find((option) => {
@@ -161,17 +169,11 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   })?.key ?? "";
   const conversationReturnTo = `/contacts/${contact.id}`;
 
-  function resetToTemplate(templateId?: string) {
-    const template = contact.emailTemplates.find((entry) => entry.id === (templateId || selectedTemplateId))
-      ?? defaultTemplate;
-    if (!template) return;
-
-    const recipientLabel = recipientOptions.find((entry) => entry.contactId === contactId)?.label.split(" · ")[0]
-      || defaultRecipient?.label.split(" · ")[0]
-      || contact.name;
-    const merged = mergeTemplate(template.body, template.subject, contact.name, recipientLabel);
-    setSubject(merged.subject);
-    setBody(merged.body);
+  function clearAttachment() {
+    setAttachment(null);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
   }
 
   function openNewDraft() {
@@ -179,6 +181,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     setSelectedTemplateId("");
     setSubject("");
     setBody("");
+    clearAttachment();
     setSaveState({ kind: "idle" });
   }
 
@@ -194,6 +197,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     setContactId(matchedRecipient?.contactId ?? activeThread.contact?.id ?? "");
     setSubject(getReplySubject(activeThread.subject));
     setBody("");
+    clearAttachment();
     setSaveState({ kind: "idle" });
   }
 
@@ -329,6 +333,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                   type="button"
                   onClick={() => {
                     setActiveThreadId(thread.id);
+                    clearAttachment();
                     setSaveState({ kind: "idle" });
                   }}
                   className={`grid w-full grid-cols-[minmax(0,200px)_minmax(0,1fr)_auto] items-center gap-3 border-t border-[var(--line)] px-4 py-3 text-left transition first:border-t-0 ${
@@ -464,6 +469,58 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               />
             </div>
 
+            <div className="mt-4 rounded-xl border border-dashed border-[var(--line)] bg-[var(--bg)] px-3 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Attachment</p>
+                  <p className="mt-1 text-[12px] text-[var(--ink-faint)]">One file, sent only with this email.</p>
+                </div>
+
+                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] font-medium text-[var(--ink-soft)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
+                  <Paperclip className="h-4 w-4" />
+                  {attachment ? "Replace file" : "Attach file"}
+                  <input
+                    ref={attachmentInputRef}
+                    type="file"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      if (!file) {
+                        clearAttachment();
+                        return;
+                      }
+
+                      if (file.size > MAX_ATTACHMENT_BYTES) {
+                        clearAttachment();
+                        setSaveState({ kind: "error", message: "Attachments are limited to 10 MB." });
+                        return;
+                      }
+
+                      setAttachment(file);
+                      setSaveState({ kind: "idle" });
+                    }}
+                  />
+                </label>
+              </div>
+
+              {attachment ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink-soft)]">
+                  <Paperclip className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {attachment.name} · {formatAttachmentSize(attachment.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearAttachment}
+                    className="rounded-md p-1 text-[var(--ink-faint)] transition hover:bg-[var(--line-soft)] hover:text-[var(--ink)]"
+                    aria-label="Remove attachment"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -476,11 +533,13 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                   formData.set("body", body);
                   if (contactId) formData.set("contactId", contactId);
                   if (activeThread) formData.set("threadId", activeThread.id);
+                  if (attachment) formData.set("attachment", attachment);
                   runAction(
                     sendAccountEmailAction,
                     formData,
                     activeThread ? "Reply sent through Gmail." : "Email sent through Gmail.",
                     () => {
+                      clearAttachment();
                       if (!activeThread) {
                         setBody("");
                       }

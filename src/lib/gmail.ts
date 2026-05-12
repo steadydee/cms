@@ -151,6 +151,23 @@ function textToSimpleHtml(value: string) {
     .join("");
 }
 
+function sanitizeMimeHeaderValue(value: string, fallback: string) {
+  const cleaned = value.replace(/[\r\n"]/g, "").trim();
+  return cleaned || fallback;
+}
+
+function normalizeMimeType(value: string | null | undefined) {
+  const cleaned = value?.trim().toLowerCase() || "";
+  if (/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(cleaned)) {
+    return cleaned;
+  }
+  return "application/octet-stream";
+}
+
+function wrapBase64(value: string) {
+  return value.match(/.{1,76}/g)?.join("\r\n") || "";
+}
+
 function normalizeRawBase64(value: string) {
   return value.replaceAll("-", "+").replaceAll("_", "/");
 }
@@ -419,14 +436,23 @@ export function buildRawGmailMessage(input: {
   bodyText: string;
   inReplyTo?: string | null;
   references?: string[];
+  attachment?: {
+    filename: string;
+    contentType?: string | null;
+    content: Buffer;
+  } | null;
 }) {
-  const boundary = `ow-partners-${randomBytes(12).toString("hex")}`;
+  const alternativeBoundary = `ow-partners-alt-${randomBytes(12).toString("hex")}`;
+  const mixedBoundary = `ow-partners-mixed-${randomBytes(12).toString("hex")}`;
+  const attachment = input.attachment ?? null;
   const headers = [
     `From: ${input.fromEmail}`,
     `To: ${input.toEmail}`,
     `Subject: ${encodeSubject(input.subject)}`,
     "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    attachment
+      ? `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`
+      : `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
   ];
 
   if (input.inReplyTo) {
@@ -437,23 +463,47 @@ export function buildRawGmailMessage(input: {
     headers.push(`References: ${input.references.join(" ")}`);
   }
 
-  const rawMessage = [
-    ...headers,
-    "",
-    `--${boundary}`,
+  const alternativePart = [
+    `--${alternativeBoundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
     "",
     input.bodyText,
     "",
-    `--${boundary}`,
+    `--${alternativeBoundary}`,
     'Content-Type: text/html; charset="UTF-8"',
     "Content-Transfer-Encoding: 8bit",
     "",
     textToSimpleHtml(input.bodyText),
     "",
-    `--${boundary}--`,
-  ].join("\r\n");
+    `--${alternativeBoundary}--`,
+  ];
+
+  const rawParts = [...headers, ""];
+
+  if (attachment) {
+    const filename = sanitizeMimeHeaderValue(attachment.filename, "attachment");
+    const contentType = normalizeMimeType(attachment.contentType);
+    rawParts.push(
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+      "",
+      ...alternativePart,
+      "",
+      `--${mixedBoundary}`,
+      `Content-Type: ${contentType}; name="${filename}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${filename}"`,
+      "",
+      wrapBase64(attachment.content.toString("base64")),
+      "",
+      `--${mixedBoundary}--`
+    );
+  } else {
+    rawParts.push(...alternativePart);
+  }
+
+  const rawMessage = rawParts.join("\r\n");
 
   return Buffer.from(rawMessage, "utf8").toString("base64url");
 }

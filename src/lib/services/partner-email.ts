@@ -27,6 +27,7 @@ import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
 
 const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
 const GMAIL_SYNC_ACTOR_NAME = "Gmail sync";
+const MAX_ACCOUNT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -594,12 +595,19 @@ export async function sendAccountEmail(
     toEmail: string;
     subject: string;
     body: string;
+    attachment?: {
+      filename: string;
+      contentType?: string | null;
+      content: Buffer;
+      size: number;
+    };
   }
 ) {
   const organizationId = input.organizationId.trim();
   const toEmail = input.toEmail.trim();
   const subject = input.subject.trim();
   const body = normalizeEmailTemplateBody(input.body).trim();
+  const attachment = input.attachment;
 
   if (!organizationId) {
     throw new Error("Account is required.");
@@ -615,6 +623,16 @@ export async function sendAccountEmail(
 
   if (!body) {
     throw new Error("Body is required.");
+  }
+
+  if (attachment) {
+    if (attachment.size > MAX_ACCOUNT_EMAIL_ATTACHMENT_BYTES) {
+      throw new Error("Attachments are limited to 10 MB.");
+    }
+
+    if (!attachment.content.byteLength) {
+      throw new Error("Attachment is empty.");
+    }
   }
 
   const organization = await getScopedOrganization(context.propertyId, organizationId);
@@ -683,6 +701,13 @@ export async function sendAccountEmail(
     bodyText: body,
     inReplyTo,
     references,
+    attachment: attachment
+      ? {
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          content: attachment.content,
+        }
+      : null,
   });
 
   const sent = await sendGmailRawMessage(accessToken, {

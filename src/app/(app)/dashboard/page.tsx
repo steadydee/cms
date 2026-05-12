@@ -7,6 +7,7 @@ type DashboardPickup = Awaited<ReturnType<typeof getDashboardPickupOverview>>;
 type AwaitingReplyItem = DashboardPickup["followUps"]["awaitingReply"][number];
 type CoolingOffItem = DashboardPickup["followUps"]["coolingOff"][number];
 type ReadyItem = DashboardPickup["followUps"]["readyToContact"][number];
+type LatestActionItem = DashboardPickup["latestActions"][number];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,6 +17,14 @@ function daysSince(date: Date) {
 
 function formatDate(date: Date) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatActionTime(date: Date) {
+  const days = daysSince(date);
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 14) return `${days}d ago`;
+  return formatDate(date);
 }
 
 function formatLastSent(date: Date | null) {
@@ -36,6 +45,12 @@ function awaitingReplyHint(daysQuiet: number) {
   if (daysQuiet <= 7) return "give it a few more days";
   if (daysQuiet <= 14) return "consider a nudge";
   return "probably gone cold";
+}
+
+function latestActionDotClassName(type: LatestActionItem["type"]) {
+  if (type === "email" || type === "whatsapp") return "bg-[var(--warm)]";
+  if (type === "stage" || type === "task_done") return "bg-[var(--accent)]";
+  return "bg-[var(--ink-faint)]";
 }
 
 function readyContext(item: ReadyItem) {
@@ -155,6 +170,27 @@ function ReadyRow({ item }: { item: ReadyItem }) {
   );
 }
 
+function LatestActionRow({ item }: { item: LatestActionItem }) {
+  return (
+    <Link
+      href={`/contacts/${item.organization.id}`}
+      className="grid gap-2 py-3 transition hover:text-[var(--accent)] sm:grid-cols-[10px_minmax(0,1fr)_max-content] sm:items-center sm:gap-4"
+    >
+      <span className={`mt-1 h-2.5 w-2.5 rounded-full sm:mt-0 ${latestActionDotClassName(item.type)}`} />
+      <span className="min-w-0 truncate text-[14px] text-[var(--ink-soft)]">
+        <span className="mr-2 inline-flex align-middle text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-faint)]">
+          {item.label}
+        </span>
+        <span className="font-semibold text-[var(--ink)]">{item.organization.name}</span>
+        <span> · {item.text}</span>
+      </span>
+      <span className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[12px] text-[var(--ink-soft)] sm:text-right">
+        {formatActionTime(item.happenedAt)}
+      </span>
+    </Link>
+  );
+}
+
 export default async function DashboardPage() {
   const context = await getPartnersRequestContext();
   if (!context) return null;
@@ -264,6 +300,28 @@ export default async function DashboardPage() {
               Nothing needs a pickup right now.
             </div>
           ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-[22px] border border-[var(--line)] bg-card px-6 py-6 shadow-[var(--shadow)] sm:px-8">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-serif text-[23px] font-semibold tracking-tight text-[var(--ink)]">Latest actions</h2>
+            <p className="mt-1 text-[13px] text-[var(--ink-soft)]">Recent outreach, status moves, and completed work.</p>
+          </div>
+          <p className="text-[12px] text-[var(--ink-faint)]">Newest first</p>
+        </div>
+
+        <div className="mt-4 divide-y divide-[var(--line)]">
+          {dashboard.latestActions.length > 0 ? (
+            dashboard.latestActions.map((item) => (
+              <LatestActionRow key={item.id} item={item} />
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed border-[var(--line)] px-4 py-6 text-[13px] text-[var(--ink-faint)]">
+              No recent actions yet.
+            </div>
+          )}
         </div>
       </section>
     </div>

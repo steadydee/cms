@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import type { PartnersRequestContext } from "@/lib/auth";
 import { sendEmailWithResend } from "@/lib/email";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
-import { getContactStage, isContactedStage, type ContactStage } from "@/lib/partners-ui";
+import { getContactStage, getStatusDisplayLabel, isContactedStage, type ContactStage } from "@/lib/partners-ui";
 import { getMailboxStatus, listOrganizationEmailThreads } from "@/lib/services/partner-email";
 
 export type SavedOrganizationView =
@@ -63,6 +63,18 @@ export type ActivityStreamItem = {
   text: string;
   author: string;
   happenedAt: Date;
+};
+
+export type DashboardLatestAction = {
+  id: string;
+  type: "email" | "whatsapp" | "call" | "meeting" | "stage" | "task_done" | "other";
+  label: string;
+  text: string;
+  happenedAt: Date;
+  organization: {
+    id: string;
+    name: string;
+  };
 };
 
 type EditableOrganizationField =
@@ -200,6 +212,84 @@ function getActivityTypeFromChannel(channel: OutreachChannel): ActivityStreamIte
     case "other":
     default:
       return "other";
+  }
+}
+
+function getDashboardActionTypeFromChannel(channel: OutreachChannel): DashboardLatestAction["type"] {
+  switch (channel) {
+    case "whatsapp":
+      return "whatsapp";
+    case "phone":
+      return "call";
+    case "meeting":
+      return "meeting";
+    case "email":
+      return "email";
+    case "other":
+    default:
+      return "other";
+  }
+}
+
+function compactActionText(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim() || "";
+}
+
+function compactSubject(value: string | null | undefined) {
+  const subject = compactActionText(value);
+  return subject ? ` · ${subject}` : "";
+}
+
+function formatStageActionText(text: string) {
+  const match = text.match(/^Stage updated to\s+(.+?)\.?$/i);
+  if (!match) return "Stage changed";
+
+  const status = match[1]?.trim().replaceAll(" ", "_");
+  const relationshipStatuses: RelationshipStatus[] = [
+    "not_contacted",
+    "contacted",
+    "awaiting_reply",
+    "engaged",
+    "visit_scheduled",
+    "visited",
+    "proposal_sent",
+    "active_partner",
+    "inactive",
+    "not_interested",
+  ];
+
+  if (relationshipStatuses.includes(status as RelationshipStatus)) {
+    return `Stage changed to ${getStatusDisplayLabel(status as RelationshipStatus)}`;
+  }
+
+  const fallback = status
+    .split("_")
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+  return `Stage changed to ${fallback || "Researching"}`;
+}
+
+function formatTouchActionText(touch: {
+  channel: OutreachChannel;
+  direction: "inbound" | "outbound";
+  summary: string;
+  subject?: string | null;
+}) {
+  const summary = compactActionText(touch.summary);
+
+  switch (touch.channel) {
+    case "whatsapp":
+      return `${touch.direction === "inbound" ? "Received" : "Sent"} WhatsApp${summary ? ` · ${summary}` : ""}`;
+    case "phone":
+      return `Logged phone call${summary ? ` · ${summary}` : ""}`;
+    case "meeting":
+      return `Logged meeting${summary ? ` · ${summary}` : ""}`;
+    case "email":
+      return `${touch.direction === "inbound" ? "Received" : "Sent"} email${compactSubject(touch.subject)}`;
+    case "other":
+    default:
+      return summary || "Logged activity";
   }
 }
 
@@ -826,6 +916,10 @@ export async function getDashboardPickupOverview(propertyId: string) {
     latestEmailActivityGroups,
     latestTouchActivityGroups,
     latestNoteActivityGroups,
+    recentEmailMessages,
+    recentNonEmailTouches,
+    recentStageNotes,
+    recentCompletedTasks,
   ] = await Promise.all([
     db.partnerOrganization.findMany({
       where: activeOrganizationWhere,
@@ -928,6 +1022,88 @@ export async function getDashboardPickupOverview(propertyId: string) {
         organization: activeOrganizationWhere,
       },
       _max: { createdAt: true },
+    }),
+    db.emailMessage.findMany({
+      where: {
+        organization: activeOrganizationWhere,
+      },
+      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+      take: 12,
+      select: {
+        id: true,
+        direction: true,
+        subject: true,
+        sentAt: true,
+        fromName: true,
+        fromEmail: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    }),
+    db.outreachTouch.findMany({
+      where: {
+        channel: { not: "email" },
+        organization: activeOrganizationWhere,
+      },
+      orderBy: [{ happenedAt: "desc" }, { createdAt: "desc" }],
+      take: 12,
+      select: {
+        id: true,
+        channel: true,
+        direction: true,
+        subject: true,
+        summary: true,
+        happenedAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    }),
+    db.note.findMany({
+      where: {
+        text: { startsWith: "Stage updated to" },
+        organization: activeOrganizationWhere,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        text: true,
+        createdAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    }),
+    db.followUpTask.findMany({
+      where: {
+        status: "done",
+        completedAt: { not: null },
+        organization: activeOrganizationWhere,
+      },
+      orderBy: [{ completedAt: "desc" }, { updatedAt: "desc" }],
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        completedAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     }),
   ]);
 
@@ -1036,6 +1212,56 @@ export async function getDashboardPickupOverview(propertyId: string) {
       daysWaiting: daysSince(account.createdAt, now),
     }));
 
+  const latestActions: DashboardLatestAction[] = [
+    ...recentEmailMessages.map((message): DashboardLatestAction => {
+      const sender = compactActionText(message.fromName) || compactActionText(message.fromEmail);
+      const isOutbound = message.direction === "outbound";
+
+      return {
+        id: createActivityStreamItemId("email", message.id),
+        type: "email",
+        label: isOutbound ? "Email sent" : "Email received",
+        text: isOutbound
+          ? `Sent email${compactSubject(message.subject)}`
+          : `Received email${sender ? ` from ${sender}` : ""}${compactSubject(message.subject)}`,
+        happenedAt: message.sentAt,
+        organization: message.organization,
+      };
+    }),
+    ...recentNonEmailTouches.map((touch): DashboardLatestAction => ({
+      id: createActivityStreamItemId("touch", touch.id),
+      type: getDashboardActionTypeFromChannel(touch.channel),
+      label: touch.channel === "whatsapp"
+        ? touch.direction === "inbound" ? "WhatsApp received" : "WhatsApp sent"
+        : touch.channel === "phone"
+          ? "Phone call"
+          : touch.channel === "meeting"
+            ? "Meeting"
+            : "Activity",
+      text: formatTouchActionText(touch),
+      happenedAt: touch.happenedAt,
+      organization: touch.organization,
+    })),
+    ...recentStageNotes.map((note): DashboardLatestAction => ({
+      id: createActivityStreamItemId("stage", note.id),
+      type: "stage",
+      label: "Status changed",
+      text: formatStageActionText(note.text),
+      happenedAt: note.createdAt,
+      organization: note.organization,
+    })),
+    ...recentCompletedTasks.map((task): DashboardLatestAction => ({
+      id: createActivityStreamItemId("task", task.id),
+      type: "task_done",
+      label: "Task completed",
+      text: `Completed task · ${task.title}`,
+      happenedAt: task.completedAt as Date,
+      organization: task.organization,
+    })),
+  ]
+    .sort((left, right) => right.happenedAt.getTime() - left.happenedAt.getTime())
+    .slice(0, 10);
+
   return {
     lastOutboundEmailAt: latestOutboundEmailAt,
     progress: {
@@ -1083,6 +1309,7 @@ export async function getDashboardPickupOverview(propertyId: string) {
       coolingOff,
       readyToContact,
     },
+    latestActions,
   };
 }
 

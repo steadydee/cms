@@ -63,6 +63,20 @@ function parseVisitStatus(value: string | null): VisitStatus {
   return "never_invited";
 }
 
+async function parseOptionalEmailAttachment(formData: FormData) {
+  const value = formData.get("attachment");
+  if (!value || typeof value === "string" || value.size === 0) {
+    return undefined;
+  }
+
+  return {
+    filename: value.name || "attachment",
+    contentType: value.type || "application/octet-stream",
+    content: Buffer.from(await value.arrayBuffer()),
+    size: value.size,
+  };
+}
+
 function parseTaskStatus(value: string | null): TaskStatus {
   if (value === "done" || value === "cancelled") return value;
   return "open";
@@ -360,6 +374,7 @@ export async function sendAccountEmailAction(formData: FormData): Promise<Inline
       toEmail: String(formData.get("toEmail") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
+      attachment: await parseOptionalEmailAttachment(formData),
     });
     revalidateContactsSurface(organizationId);
   });
