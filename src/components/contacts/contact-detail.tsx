@@ -36,6 +36,8 @@ type ContactDetailData = NonNullable<Awaited<ReturnType<typeof getContactDetailP
 
 const fieldClassName =
   "w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]";
+const DISPLAY_LOCALE = "en-US";
+const DISPLAY_TIME_ZONE = "America/Bogota";
 
 const relationshipStatuses: RelationshipStatus[] = [
   "not_contacted",
@@ -78,12 +80,11 @@ function buildDateInputValue(date: Date | null | undefined) {
 
 function formatShortDate(date: Date | null | undefined) {
   if (!date) return "No due date";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatDateTime(date: Date | null | undefined) {
-  if (!date) return "Not set";
-  return date.toLocaleString();
+  return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+    month: "short",
+    day: "numeric",
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(date);
 }
 
 function timeAgo(date: Date) {

@@ -26,6 +26,8 @@ type RecipientOption = {
 };
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const DISPLAY_LOCALE = "en-US";
+const DISPLAY_TIME_ZONE = "America/Bogota";
 
 function mergeTemplate(body: string, subject: string, company: string, name: string) {
   return {
@@ -35,12 +37,13 @@ function mergeTemplate(body: string, subject: string, company: string, name: str
 }
 
 function formatDateTime(date: Date | string) {
-  return new Date(date).toLocaleString(undefined, {
+  return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(new Date(date));
 }
 
 function getReplySubject(subject: string | null | undefined) {
@@ -50,10 +53,11 @@ function getReplySubject(subject: string | null | undefined) {
 }
 
 function formatInboxTime(date: Date | string) {
-  return new Date(date).toLocaleString(undefined, {
+  return new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     month: "short",
     day: "numeric",
-  });
+    timeZone: DISPLAY_TIME_ZONE,
+  }).format(new Date(date));
 }
 
 function formatAttachmentSize(bytes: number) {
