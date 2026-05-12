@@ -17,6 +17,14 @@ Non-negotiables:
 - If production does not update automatically, deploy or promote production and verify the live URL.
 - Final responses must state what was tested, where it was tested, the test deployment URL, what was pushed, and whether production is live.
 
+## Deployment Environments
+
+- Vercel project: `partners`
+- Test UAT URL: `https://partners-env-test-dennis-projects-b028c121.vercel.app`
+- Production URL: `https://cms.owlswatch.com`
+
+Before production-impacting work, deploy the current candidate to the Test UAT URL and verify that exact deployment. Do not use localhost or an older test deployment as the final validation path.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
