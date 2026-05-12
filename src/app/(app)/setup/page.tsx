@@ -1,6 +1,6 @@
 import { getPartnersRequestContext } from "@/lib/auth";
 import { getOpsOverview, listPartnerTypeOptions } from "@/lib/services/partners";
-import { EmailTemplateCard } from "@/components/dashboard/email-template-card";
+import { EmailTemplateCard, EmailTemplateCreateCard } from "@/components/dashboard/email-template-card";
 import { PartnerTypeTable } from "@/components/setup/partner-type-table";
 
 export default async function SetupPage() {
@@ -36,7 +36,10 @@ export default async function SetupPage() {
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {ops.templates.map((template) => <EmailTemplateCard key={template.id} template={template} />)}
+          <EmailTemplateCreateCard />
+          {ops.templates.map((template) => (
+            <EmailTemplateCard key={template.id} template={template} canDelete={ops.templates.length > 1} />
+          ))}
         </div>
       </section>
     </div>

@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { authorizePartnersAccess } from "@/lib/auth";
 import { setFlashMessage } from "@/lib/flash";
-import { savePartnerTypeOptions, updateEmailTemplate } from "@/lib/services/partners";
+import {
+  createEmailTemplate,
+  deleteEmailTemplate,
+  savePartnerTypeOptions,
+  updateEmailTemplate,
+} from "@/lib/services/partners";
 
 type PartnerTypeRowInput = {
   id?: string;
@@ -24,6 +29,34 @@ type InlineActionResult = {
   error?: string;
 };
 
+function revalidateSetupSurfaces() {
+  revalidatePath("/setup");
+  revalidatePath("/contacts");
+  revalidatePath("/dashboard");
+  revalidatePath("/organizations");
+}
+
+export async function createEmailTemplateSetupAction(formData: FormData): Promise<InlineActionResult> {
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      return { ok: false, error: access.message };
+    }
+
+    await createEmailTemplate(access.context, {
+      name: String(formData.get("name") ?? ""),
+      subject: String(formData.get("subject") ?? ""),
+      body: String(formData.get("body") ?? ""),
+    });
+
+    revalidateSetupSurfaces();
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
 export async function saveEmailTemplateSetupAction(formData: FormData): Promise<InlineActionResult> {
   try {
     const access = await authorizePartnersAccess("write");
@@ -33,14 +66,29 @@ export async function saveEmailTemplateSetupAction(formData: FormData): Promise<
 
     await updateEmailTemplate(access.context, {
       templateId: String(formData.get("templateId") ?? ""),
+      name: String(formData.get("name") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
     });
 
-    revalidatePath("/setup");
-    revalidatePath("/contacts");
-    revalidatePath("/dashboard");
-    revalidatePath("/organizations");
+    revalidateSetupSurfaces();
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function deleteEmailTemplateSetupAction(formData: FormData): Promise<InlineActionResult> {
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      return { ok: false, error: access.message };
+    }
+
+    await deleteEmailTemplate(access.context, String(formData.get("templateId") ?? ""));
+
+    revalidateSetupSurfaces();
 
     return { ok: true };
   } catch (error) {
@@ -62,10 +110,7 @@ export async function savePartnerTypeSetupAction(formData: FormData) {
 
     await savePartnerTypeOptions(access.context, { rows });
 
-    revalidatePath("/setup");
-    revalidatePath("/contacts");
-    revalidatePath("/dashboard");
-    revalidatePath("/organizations");
+    revalidateSetupSurfaces();
     await setFlashMessage({ type: "success", text: "Account types updated." });
   } catch (error) {
     await setFlashMessage({ type: "error", text: getErrorMessage(error) });

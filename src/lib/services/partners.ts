@@ -627,16 +627,22 @@ export async function updateEmailTemplate(
   context: PartnersRequestContext,
   input: {
     templateId: string;
+    name: string;
     subject: string;
     body: string;
   }
 ) {
   const templateId = input.templateId.trim();
+  const name = input.name.trim();
   const subject = input.subject.trim();
   const body = normalizeEmailTemplateBody(input.body).trim();
 
   if (!templateId) {
     throw new Error("Template is required.");
+  }
+
+  if (!name) {
+    throw new Error("Template name is required.");
   }
 
   if (!subject) {
@@ -664,9 +670,88 @@ export async function updateEmailTemplate(
   return db.emailTemplate.update({
     where: { id: template.id },
     data: {
+      name,
       subject,
       body,
     },
+  });
+}
+
+export async function createEmailTemplate(
+  context: PartnersRequestContext,
+  input: {
+    name: string;
+    subject: string;
+    body: string;
+  }
+) {
+  await ensureDefaultEmailTemplates(context.propertyId);
+
+  const name = input.name.trim();
+  const subject = input.subject.trim();
+  const body = normalizeEmailTemplateBody(input.body).trim();
+
+  if (!name) {
+    throw new Error("Template name is required.");
+  }
+
+  if (!subject) {
+    throw new Error("Subject is required.");
+  }
+
+  if (!body) {
+    throw new Error("Body is required.");
+  }
+
+  const lastTemplate = await db.emailTemplate.findFirst({
+    where: { propertyId: context.propertyId },
+    orderBy: [{ sortOrder: "desc" }, { createdAt: "desc" }],
+    select: { sortOrder: true },
+  });
+
+  return db.emailTemplate.create({
+    data: {
+      propertyId: context.propertyId,
+      name,
+      subject,
+      body,
+      sortOrder: (lastTemplate?.sortOrder ?? -1) + 1,
+    },
+  });
+}
+
+export async function deleteEmailTemplate(
+  context: PartnersRequestContext,
+  templateId: string
+) {
+  await ensureDefaultEmailTemplates(context.propertyId);
+
+  const id = templateId.trim();
+  if (!id) {
+    throw new Error("Template is required.");
+  }
+
+  const [template, templateCount] = await Promise.all([
+    db.emailTemplate.findFirst({
+      where: {
+        id,
+        propertyId: context.propertyId,
+      },
+      select: { id: true },
+    }),
+    db.emailTemplate.count({ where: { propertyId: context.propertyId } }),
+  ]);
+
+  if (!template) {
+    throw new Error("Template not found.");
+  }
+
+  if (templateCount <= 1) {
+    throw new Error("Keep at least one email template.");
+  }
+
+  return db.emailTemplate.delete({
+    where: { id: template.id },
   });
 }
 
