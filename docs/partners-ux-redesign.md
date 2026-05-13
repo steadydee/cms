@@ -4,6 +4,8 @@
 
 Make `projects/cms` feel less like a collection of forms and more like a real operating tool.
 
+Use the Hub [Design Standard](/Users/dennis/Projects/owhub/docs/design-standard.md) as the shared cross-app UX source of truth. This document keeps Partners-specific design notes only.
+
 The product is not a generic CMS. It is a **Partners CRM** for outreach to operators, agencies, advisors, and related contacts.
 
 The redesign should borrow the best parts of PMS:

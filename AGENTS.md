@@ -3,6 +3,8 @@
 Before coding in this repo, read:
 
 - `/Users/dennis/Projects/owhub/docs/agent-operating-system.md`
+- `/Users/dennis/Projects/owhub/docs/build-standard.md`
+- `/Users/dennis/Projects/owhub/docs/design-standard.md`
 - `/Users/dennis/Projects/owhub/docs/how-we-work.md`
 - `/Users/dennis/Projects/owhub/docs/testing-standard.md`
 
@@ -16,6 +18,8 @@ Non-negotiables:
 - After relevant tests and UAT pass, commit and push to `origin/main`.
 - If production does not update automatically, deploy or promote production and verify the live URL.
 - Final responses must state what was tested, where it was tested, the test deployment URL, what was pushed, and whether production is live.
+
+Shared design, build, testing, agent, auth, approval, audit, and job standards live in the Hub repo. This repo can add local constraints, but it must not weaken or fork Hub standards.
 
 ## Deployment Environments
 

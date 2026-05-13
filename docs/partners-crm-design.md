@@ -4,6 +4,8 @@
 
 This repository can stay at `cms` for now, but the product it is becoming is **Partners**.
 
+Use the Hub [Build Standard](/Users/dennis/Projects/owhub/docs/build-standard.md) and [Design Standard](/Users/dennis/Projects/owhub/docs/design-standard.md) for shared cross-app standards. This document is limited to Partners domain design.
+
 This app is not a generic content system. It is the relationship and outreach CRM for Owl's Watch:
 
 - operators and agencies that can bring guests
