@@ -12,10 +12,13 @@ Non-negotiables:
 
 - Dennis does not run or review local builds.
 - Do not use localhost as the final validation path.
+- Treat Vercel as the runtime validation target; local dev is only a Codex coding convenience.
 - If a Vercel test environment exists, deploy the current candidate there and complete UAT there before production.
 - Do not treat a stale test deployment as valid UAT; test must contain the code being shipped.
 - If no test environment exists, stop and state that gap before any production-impacting step unless Dennis explicitly approves the risk.
-- After relevant tests and UAT pass, commit and push to `origin/main`.
+- Run the standard test cases, including deployed UAT with browser control or in-app browser for UI/workflow changes.
+- After relevant tests and UAT pass, commit and push or merge to `origin/main`.
+- Do not leave dirty working trees at handoff; completed work must be pushed, and blockers must identify any uncommitted files.
 - If production does not update automatically, deploy or promote production and verify the live URL.
 - Final responses must state what was tested, where it was tested, the test deployment URL, what was pushed, and whether production is live.
 
