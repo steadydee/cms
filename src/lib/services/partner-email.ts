@@ -29,8 +29,121 @@ const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
 const GMAIL_SYNC_ACTOR_NAME = "Gmail sync";
 const MAX_ACCOUNT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+export type MailboxFromOption = {
+  email: string;
+  label: string;
+  name: string | null;
+  source: "mailbox" | "alias";
+};
+
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
+}
+
+function toDisplayNameFromEmail(email: string) {
+  const localPart = email.split("@")[0] || email;
+  const words = localPart
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  return words
+    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
+    .join(" ") || email;
+}
+
+function parseEmailIdentity(value: string): { email: string; name: string | null } | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const bracketMatch = trimmed.match(/^(.*?)<([^<>]+)>$/);
+  if (bracketMatch) {
+    const email = normalizeEmail(bracketMatch[2] || "");
+    const name = (bracketMatch[1] || "").replace(/^"|"$/g, "").trim() || null;
+    if (email.includes("@")) return { email, name };
+    return null;
+  }
+
+  const email = normalizeEmail(trimmed);
+  if (!email.includes("@")) return null;
+  return { email, name: toDisplayNameFromEmail(email) };
+}
+
+function formatIdentityLabel(identity: { email: string; name: string | null }, suffix: string) {
+  const base = identity.name ? `${identity.name} <${identity.email}>` : identity.email;
+  return `${base} · ${suffix}`;
+}
+
+function getConfiguredAliasEntries() {
+  const configured = process.env.OW_PARTNERS_EMAIL_FROM_ALIASES?.trim()
+    || process.env.OW_PARTNERS_GMAIL_FROM_ALIASES?.trim()
+    || "";
+
+  return configured
+    .split(/[\n,;]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+export function getMailboxFromOptions(connectedEmail: string | null | undefined): MailboxFromOption[] {
+  const options: MailboxFromOption[] = [];
+  const seen = new Set<string>();
+
+  const addOption = (option: MailboxFromOption | null) => {
+    if (!option) return;
+    const key = normalizeEmail(option.email);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    options.push(option);
+  };
+
+  const mailboxIdentity = connectedEmail ? parseEmailIdentity(connectedEmail) : null;
+  if (mailboxIdentity) {
+    addOption({
+      email: mailboxIdentity.email,
+      name: mailboxIdentity.name,
+      label: formatIdentityLabel(mailboxIdentity, "connected mailbox"),
+      source: "mailbox",
+    });
+  }
+
+  for (const entry of getConfiguredAliasEntries()) {
+    const identity = parseEmailIdentity(entry);
+    if (!identity) continue;
+    addOption({
+      email: identity.email,
+      name: identity.name,
+      label: formatIdentityLabel(identity, "alias"),
+      source: "alias",
+    });
+  }
+
+  return options;
+}
+
+function resolveMailboxFromOption(connectedEmail: string, requestedEmail?: string): MailboxFromOption {
+  const options = getMailboxFromOptions(connectedEmail);
+  const fallback = options[0];
+  if (!fallback) {
+    throw new Error("Connected mailbox is missing a sender address.");
+  }
+
+  const requested = normalizeEmail(requestedEmail || "");
+  if (!requested) return fallback;
+
+  const option = options.find((entry) => normalizeEmail(entry.email) === requested);
+  if (!option) {
+    throw new Error("Choose a configured sender alias.");
+  }
+
+  return option;
+}
+
+function isOwnMailboxIdentity(fromEmail: string | null, ownEmails: string[]) {
+  if (!fromEmail) return false;
+  const normalized = normalizeEmail(fromEmail);
+  return ownEmails.some((email) => normalizeEmail(email) === normalized);
 }
 
 function hasEmailStatusPriority(status: RelationshipStatus) {
@@ -263,6 +376,7 @@ async function storeGmailMessage(input: {
   propertyId: string;
   mailboxConnectionId: string;
   mailboxEmail: string;
+  outboundIdentityEmails?: string[];
   gmailMessage: GmailMessage;
   forcedMatch?: { organizationId: string; contactId?: string | null } | null;
   actorUserId: string;
@@ -306,9 +420,14 @@ async function storeGmailMessage(input: {
   const internalDate = input.gmailMessage.internalDate ? Number(input.gmailMessage.internalDate) : Date.now();
   const sentAt = Number.isFinite(internalDate) ? new Date(internalDate) : new Date();
   const mailboxEmail = normalizeEmail(input.mailboxEmail);
+  const outboundIdentityEmails = Array.from(new Set([
+    mailboxEmail,
+    ...getMailboxFromOptions(input.mailboxEmail).map((option) => option.email),
+    ...(input.outboundIdentityEmails ?? []),
+  ]));
   const fromEmail = participants.from[0]?.email || null;
   const recipientEmail = participants.to[0]?.email || null;
-  const direction = fromEmail === mailboxEmail ? "outbound" : "inbound";
+  const direction = isOwnMailboxIdentity(fromEmail, outboundIdentityEmails) ? "outbound" : "inbound";
   const summary = direction === "outbound"
     ? summarizeOutboundMessage(input.gmailMessage, recipientEmail)
     : summarizeInboundMessage(input.gmailMessage, fromEmail);
@@ -441,11 +560,13 @@ async function storeGmailMessage(input: {
 
 export async function getMailboxStatus(propertyId: string) {
   const connection = await getMailboxConnection(propertyId);
+  const fromOptions = getMailboxFromOptions(connection?.emailAddress ?? null);
 
   return {
     configured: isGmailConfigured(),
     connected: Boolean(connection),
     connectedEmail: connection?.emailAddress ?? null,
+    fromOptions,
     labelName: connection?.labelName ?? null,
     lastSyncedAt: connection?.lastSyncedAt ?? null,
     lastSyncError: connection?.lastSyncError ?? null,
@@ -544,6 +665,7 @@ export async function syncMailbox(context: PartnersRequestContext) {
         propertyId: context.propertyId,
         mailboxConnectionId: connection.id,
         mailboxEmail: connection.emailAddress,
+        outboundIdentityEmails: getMailboxFromOptions(connection.emailAddress).map((option) => option.email),
         gmailMessage: message,
         actorUserId: GMAIL_SYNC_ACTOR_ID,
         actorUserName: GMAIL_SYNC_ACTOR_NAME,
@@ -592,6 +714,7 @@ export async function sendAccountEmail(
     organizationId: string;
     contactId?: string;
     threadId?: string;
+    fromEmail?: string;
     toEmail: string;
     subject: string;
     body: string;
@@ -645,6 +768,7 @@ export async function sendAccountEmail(
     : null;
 
   const { connection, accessToken } = await getMailboxAuthorization(context.propertyId);
+  const fromOption = resolveMailboxFromOption(connection.emailAddress, input.fromEmail);
   let threadRecord:
     | {
         id: string;
@@ -695,7 +819,8 @@ export async function sendAccountEmail(
   }
 
   const raw = buildRawGmailMessage({
-    fromEmail: connection.emailAddress,
+    fromEmail: fromOption.email,
+    fromName: fromOption.name,
     toEmail,
     subject,
     bodyText: body,
@@ -724,6 +849,7 @@ export async function sendAccountEmail(
     propertyId: context.propertyId,
     mailboxConnectionId: connection.id,
     mailboxEmail: connection.emailAddress,
+    outboundIdentityEmails: getMailboxFromOptions(connection.emailAddress).map((option) => option.email),
     gmailMessage,
     forcedMatch: {
       organizationId: organization.id,

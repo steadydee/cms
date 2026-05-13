@@ -78,6 +78,7 @@ The current app expects these variables:
 - `GOOGLE_CLIENT_ID`: Google OAuth client id for Gmail connection
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret for Gmail connection
 - `OW_PARTNERS_GMAIL_TOKEN_SECRET`: encryption/signing secret for stored Gmail refresh tokens and OAuth state
+- `OW_PARTNERS_EMAIL_FROM_ALIASES`: optional comma- or newline-separated Gmail send-as aliases available in the account email composer, for example `Adriana <adriana@owlswatch.com>`
 - `RESEND_API_KEY`: optional, only for legacy or future broadcast/system sends
 - `OW_PARTNERS_EMAIL_FROM`: optional legacy sender, for example `info@owlswatch.com`
 - `OW_PARTNERS_EMAIL_REPLY_TO`: optional legacy reply target, for example `info@owlswatch.com`
@@ -97,6 +98,7 @@ Recommended account email setup:
 
 - register Google OAuth redirect URIs for each Partners origin using `/api/auth/gmail/callback`
 - connect the working Owl's Watch Gmail inbox from an account detail page
+- configure verified Gmail send-as aliases in `OW_PARTNERS_EMAIL_FROM_ALIASES` when the same mailbox should send as named aliases
 - use `Sync inbox` to mirror recent replies and external sent mail into Partners
 
 Legacy or optional email setup:

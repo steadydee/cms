@@ -24,6 +24,8 @@ The account detail page now has a dedicated `Conversation` section with:
 - thread list for the current account
 - conversation view for the active thread
 - template-assisted plain-text composer
+- one-time file attachment support
+- a `From` selector for the connected Gmail mailbox and configured send-as aliases
 
 The old `mailto` helper and manual `Log as sent` flow should no longer be treated as the primary email workflow.
 
@@ -72,9 +74,11 @@ Stores each imported or app-sent Gmail message:
 ### Send
 
 1. User composes in the account page.
-2. Partners sends through Gmail API using the connected mailbox.
-3. The sent Gmail message is fetched back from Gmail and stored locally as an `EmailMessage`.
-4. Partners also writes an `OutreachTouch` summary so existing dashboards and next-step logic keep working.
+2. User chooses the connected mailbox or a configured send-as alias.
+3. Partners validates that the selected sender is allowed for the mailbox.
+4. Partners sends through Gmail API using the connected mailbox.
+5. The sent Gmail message is fetched back from Gmail and stored locally as an `EmailMessage`.
+6. Partners also writes an `OutreachTouch` summary so existing dashboards and next-step logic keep working.
 
 ### Sync
 
@@ -90,8 +94,9 @@ Unmatched messages are skipped for now rather than creating an inbox queue.
 ## Current Constraints
 
 - Compose is plain text first, not rich text.
-- Attachments are not included in this pass.
+- Attachments are one-time per send; there is no document library yet.
 - Sync is manual in this pass.
+- Gmail send-as aliases are configured through `OW_PARTNERS_EMAIL_FROM_ALIASES`; the aliases must also be verified in Gmail.
 - Resend remains in the repo for legacy/system paths, but not as the primary account-level outreach path.
 
 ## Required Environment
@@ -99,6 +104,7 @@ Unmatched messages are skipped for now rather than creating an inbox queue.
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `OW_PARTNERS_GMAIL_TOKEN_SECRET`
+- `OW_PARTNERS_EMAIL_FROM_ALIASES` for optional send-as aliases, for example `Adriana <adriana@owlswatch.com>`
 
 Google OAuth redirect URIs must include:
 

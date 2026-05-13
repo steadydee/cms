@@ -371,6 +371,7 @@ export async function sendAccountEmailAction(formData: FormData): Promise<Inline
       organizationId,
       contactId: String(formData.get("contactId") ?? "") || undefined,
       threadId: String(formData.get("threadId") ?? "") || undefined,
+      fromEmail: String(formData.get("fromEmail") ?? "") || undefined,
       toEmail: String(formData.get("toEmail") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),

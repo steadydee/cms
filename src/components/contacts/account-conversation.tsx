@@ -88,6 +88,9 @@ function MessageBubble({
 }) {
   const outbound = message.direction === "outbound";
   const toEmails = Array.isArray(message.toEmails) ? message.toEmails.join(", ") : "";
+  const deliveryLine = outbound
+    ? `From ${message.fromEmail || "mailbox"} · To ${toEmails || "recipient"}`
+    : `From ${message.fromEmail || "sender"}`;
 
   return (
     <div className="px-4 py-4">
@@ -97,7 +100,7 @@ function MessageBubble({
             {outbound ? "Sent" : "Reply"}
           </p>
           <p className="mt-2 text-[14px] font-medium text-[var(--ink)]">
-            {outbound ? `To ${toEmails || "recipient"}` : `From ${message.fromEmail || "sender"}`}
+            {deliveryLine}
           </p>
         </div>
         <p className="whitespace-nowrap text-[12px] text-[var(--ink-soft)]">{formatDateTime(message.sentAt)}</p>
@@ -160,6 +163,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   const defaultRecipient = recipientOptions[0] ?? null;
   const [activeThreadId, setActiveThreadId] = useState(contact.emailThreads[0]?.id ?? "");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [fromEmail, setFromEmail] = useState(contact.mailbox.fromOptions[0]?.email ?? contact.mailbox.connectedEmail ?? "");
   const [toEmail, setToEmail] = useState(defaultRecipient?.email ?? "");
   const [contactId, setContactId] = useState(defaultRecipient?.contactId ?? "");
   const [subject, setSubject] = useState("");
@@ -251,6 +255,9 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                   ? `Last synced ${formatDateTime(contact.mailbox.lastSyncedAt)}`
                   : "Connected. Sync inbox to import replies."}
               </p>
+              {contact.mailbox.fromOptions.length > 1 ? (
+                <p className="mt-1">{contact.mailbox.fromOptions.length - 1} send alias{contact.mailbox.fromOptions.length === 2 ? "" : "es"} available</p>
+              ) : null}
             </>
           ) : contact.mailbox.configured ? (
             <p>Connect Gmail to send from the app and mirror replies back into this account.</p>
@@ -423,7 +430,27 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               </select>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="mt-4 grid gap-3 md:grid-cols-[220px_220px_minmax(0,1fr)]">
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">From</label>
+                <select
+                  value={fromEmail}
+                  onChange={(event) => setFromEmail(event.target.value)}
+                  disabled={!contact.mailbox.connected}
+                  className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
+                >
+                  {contact.mailbox.fromOptions.length > 0 ? (
+                    contact.mailbox.fromOptions.map((option) => (
+                      <option key={option.email} value={option.email}>
+                        {option.label}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Connect Gmail</option>
+                  )}
+                </select>
+              </div>
+
               <div>
                 <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Saved recipient</label>
                 <select
@@ -528,10 +555,11 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                disabled={!contact.mailbox.connected || !toEmail.trim() || !subject.trim() || !body.trim() || isPending}
+                disabled={!contact.mailbox.connected || !fromEmail.trim() || !toEmail.trim() || !subject.trim() || !body.trim() || isPending}
                 onClick={() => {
                   const formData = new FormData();
                   formData.set("organizationId", contact.id);
+                  formData.set("fromEmail", fromEmail);
                   formData.set("toEmail", toEmail);
                   formData.set("subject", subject);
                   formData.set("body", body);

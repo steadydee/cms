@@ -156,6 +156,19 @@ function sanitizeMimeHeaderValue(value: string, fallback: string) {
   return cleaned || fallback;
 }
 
+function sanitizeEmailHeaderAddress(value: string) {
+  return value.replace(/[\r\n<>"]/g, "").trim();
+}
+
+function formatEmailAddressHeader(email: string, name?: string | null) {
+  const sanitizedEmail = sanitizeEmailHeaderAddress(email);
+  const sanitizedName = name ? sanitizeMimeHeaderValue(name, "") : "";
+
+  if (!sanitizedName) return sanitizedEmail;
+
+  return `${encodeSubject(sanitizedName)} <${sanitizedEmail}>`;
+}
+
 function normalizeMimeType(value: string | null | undefined) {
   const cleaned = value?.trim().toLowerCase() || "";
   if (/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(cleaned)) {
@@ -431,6 +444,7 @@ export async function addLabelToGmailMessage(accessToken: string, messageId: str
 
 export function buildRawGmailMessage(input: {
   fromEmail: string;
+  fromName?: string | null;
   toEmail: string;
   subject: string;
   bodyText: string;
@@ -446,7 +460,7 @@ export function buildRawGmailMessage(input: {
   const mixedBoundary = `ow-partners-mixed-${randomBytes(12).toString("hex")}`;
   const attachment = input.attachment ?? null;
   const headers = [
-    `From: ${input.fromEmail}`,
+    `From: ${formatEmailAddressHeader(input.fromEmail, input.fromName)}`,
     `To: ${input.toEmail}`,
     `Subject: ${encodeSubject(input.subject)}`,
     "MIME-Version: 1.0",
