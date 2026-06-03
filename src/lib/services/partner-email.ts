@@ -23,6 +23,7 @@ import {
   type GmailMessage,
 } from "@/lib/gmail";
 import { db } from "@/lib/db";
+import { assertLiveEmailSendsAllowed } from "@/lib/email-safety";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
 
 const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
@@ -757,6 +758,8 @@ export async function sendAccountEmail(
       throw new Error("Attachment is empty.");
     }
   }
+
+  assertLiveEmailSendsAllowed();
 
   const organization = await getScopedOrganization(context.propertyId, organizationId);
   if (!organization) {

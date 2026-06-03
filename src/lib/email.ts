@@ -1,3 +1,5 @@
+import { areLiveEmailSendsAllowed, assertLiveEmailSendsAllowed } from "@/lib/email-safety";
+
 type SendEmailInput = {
   to: string;
   subject: string;
@@ -21,7 +23,8 @@ export function getEmailDeliveryStatus() {
     apiKeyConfigured,
     fromConfigured,
     replyToConfigured,
-    resendConfigured: apiKeyConfigured && fromConfigured,
+    liveSendAllowed: areLiveEmailSendsAllowed(),
+    resendConfigured: apiKeyConfigured && fromConfigured && areLiveEmailSendsAllowed(),
   };
 }
 
@@ -51,6 +54,8 @@ function textToSimpleHtml(value: string) {
 }
 
 export async function sendEmailWithResend(input: SendEmailInput) {
+  assertLiveEmailSendsAllowed();
+
   const apiKey = getRequiredEnv("RESEND_API_KEY");
   const from = getRequiredEnv("OW_PARTNERS_EMAIL_FROM");
 

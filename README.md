@@ -79,6 +79,7 @@ The current app expects these variables:
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret for Gmail connection
 - `OW_PARTNERS_GMAIL_TOKEN_SECRET`: encryption/signing secret for stored Gmail refresh tokens and OAuth state
 - `OW_PARTNERS_EMAIL_FROM_ALIASES`: optional comma- or newline-separated Gmail send-as aliases available in the account email composer, for example `Adriana <adriana@owlswatch.com>`
+- `OW_PARTNERS_ALLOW_LIVE_EMAIL_SENDS`: optional emergency/test override. Leave unset by default; production can send live email, while preview/test/local runtimes block external sends unless this is explicitly `true`.
 - `RESEND_API_KEY`: optional, only for legacy or future broadcast/system sends
 - `OW_PARTNERS_EMAIL_FROM`: optional legacy sender, for example `info@owlswatch.com`
 - `OW_PARTNERS_EMAIL_REPLY_TO`: optional legacy reply target, for example `info@owlswatch.com`
