@@ -862,7 +862,7 @@ function AccountDetailsPanel({
 
       <div className="mt-4 grid gap-x-5 gap-y-3 md:grid-cols-2">
         {fields.map(({ key, label, icon: Icon }) => (
-          <div key={key} className="rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 py-3">
+          <div key={key} className="min-w-0 rounded-xl border border-[var(--line)] bg-[var(--card)] px-3 py-3">
             <div className="flex items-center gap-2">
               <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--ink-soft)]" />
               <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ink-faint)]">{label}</span>
@@ -871,10 +871,12 @@ function AccountDetailsPanel({
               <input
                 value={draft[key]}
                 onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))}
-                className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
+                className="mt-2 min-w-0 w-full rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink)] outline-none transition focus:border-[var(--accent)]"
               />
             ) : (
-              <p className="mt-2 text-[14px] text-[var(--ink)]">{values[key] || <span className="text-[var(--ink-faint)]">Add...</span>}</p>
+              <p className="mt-2 min-w-0 break-words text-[14px] text-[var(--ink)] [overflow-wrap:anywhere]">
+                {values[key] || <span className="text-[var(--ink-faint)]">Add...</span>}
+              </p>
             )}
           </div>
         ))}
