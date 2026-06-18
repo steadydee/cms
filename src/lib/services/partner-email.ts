@@ -195,6 +195,26 @@ async function assertContactBelongsToOrganization(organizationId: string, contac
   return contact;
 }
 
+async function assertThreadBelongsToOrganization(organizationId: string, threadId: string) {
+  const thread = await db.emailThread.findFirst({
+    where: {
+      id: threadId,
+      organizationId,
+    },
+    select: {
+      id: true,
+      providerThreadId: true,
+      subject: true,
+    },
+  });
+
+  if (!thread) {
+    throw new Error("Thread not found for account.");
+  }
+
+  return thread;
+}
+
 async function getMailboxConnection(propertyId: string) {
   return db.mailboxConnection.findUnique({
     where: { propertyId },
@@ -572,6 +592,185 @@ export async function getMailboxStatus(propertyId: string) {
     lastSyncedAt: connection?.lastSyncedAt ?? null,
     lastSyncError: connection?.lastSyncError ?? null,
   };
+}
+
+export async function listOrganizationEmailDrafts(organizationId: string, propertyId: string) {
+  const organization = await getScopedOrganization(propertyId, organizationId);
+  if (!organization) {
+    throw new Error("Account not found.");
+  }
+
+  return db.emailDraft.findMany({
+    where: {
+      organizationId,
+    },
+    include: {
+      contact: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      emailThread: {
+        select: {
+          id: true,
+          subject: true,
+        },
+      },
+    },
+    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+  });
+}
+
+export async function saveEmailDraft(
+  context: PartnersRequestContext,
+  input: {
+    draftId?: string;
+    organizationId: string;
+    contactId?: string;
+    threadId?: string;
+    fromEmail?: string;
+    toEmail?: string;
+    subject?: string;
+    body: string;
+  }
+) {
+  const organizationId = input.organizationId.trim();
+  const draftId = input.draftId?.trim() || "";
+  const contactId = input.contactId?.trim() || "";
+  const threadId = input.threadId?.trim() || "";
+  const fromEmail = input.fromEmail?.trim() || null;
+  const toEmail = input.toEmail?.trim() || null;
+  const subject = input.subject?.trim() || null;
+  const bodyText = normalizeEmailTemplateBody(input.body);
+
+  if (!organizationId) {
+    throw new Error("Account is required.");
+  }
+
+  if (!toEmail && !subject && !bodyText.trim()) {
+    throw new Error("Add a recipient, subject, or body before saving a draft.");
+  }
+
+  const organization = await getScopedOrganization(context.propertyId, organizationId);
+  if (!organization) {
+    throw new Error("Account not found.");
+  }
+
+  const contact = contactId ? await assertContactBelongsToOrganization(organizationId, contactId) : null;
+  const thread = threadId ? await assertThreadBelongsToOrganization(organizationId, threadId) : null;
+
+  if (draftId) {
+    const existing = await db.emailDraft.findFirst({
+      where: {
+        id: draftId,
+        organization: {
+          id: organizationId,
+          propertyId: context.propertyId,
+          archivedAt: null,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new Error("Draft not found for account.");
+    }
+
+    return db.emailDraft.update({
+      where: { id: draftId },
+      data: {
+        contactId: contact?.id ?? null,
+        emailThreadId: thread?.id ?? null,
+        fromEmail,
+        toEmail,
+        subject,
+        bodyText,
+        createdByUserId: context.userId,
+        createdByUserName: context.userName,
+      },
+      include: {
+        contact: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        emailThread: {
+          select: {
+            id: true,
+            subject: true,
+          },
+        },
+      },
+    });
+  }
+
+  return db.emailDraft.create({
+    data: {
+      organizationId,
+      contactId: contact?.id ?? null,
+      emailThreadId: thread?.id ?? null,
+      fromEmail,
+      toEmail,
+      subject,
+      bodyText,
+      createdByUserId: context.userId,
+      createdByUserName: context.userName,
+    },
+    include: {
+      contact: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+        },
+      },
+      emailThread: {
+        select: {
+          id: true,
+          subject: true,
+        },
+      },
+    },
+  });
+}
+
+export async function deleteEmailDraft(
+  context: PartnersRequestContext,
+  input: {
+    organizationId: string;
+    draftId: string;
+  }
+) {
+  const organizationId = input.organizationId.trim();
+  const draftId = input.draftId.trim();
+
+  if (!organizationId || !draftId) {
+    throw new Error("Draft is required.");
+  }
+
+  const existing = await db.emailDraft.findFirst({
+    where: {
+      id: draftId,
+      organization: {
+        id: organizationId,
+        propertyId: context.propertyId,
+        archivedAt: null,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    throw new Error("Draft not found for account.");
+  }
+
+  return db.emailDraft.delete({
+    where: { id: draftId },
+  });
 }
 
 export async function connectPropertyMailbox(input: {

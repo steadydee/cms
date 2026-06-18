@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { OutreachChannel, RelationshipStatus, TaskStatus, VisitStatus } from "@prisma/client";
 import { authorizePartnersAccess, type PartnersRequestContext } from "@/lib/auth";
 import { setFlashMessage } from "@/lib/flash";
-import { sendAccountEmail, syncMailbox } from "@/lib/services/partner-email";
+import { deleteEmailDraft, saveEmailDraft, sendAccountEmail, syncMailbox } from "@/lib/services/partner-email";
 import {
   addContact,
   addNote,
@@ -27,6 +27,7 @@ import {
 type InlineActionResult = {
   ok: boolean;
   error?: string;
+  draftId?: string;
 };
 
 function parseChannel(value: string | null): OutreachChannel {
@@ -365,6 +366,7 @@ export async function syncMailboxAction(formData: FormData): Promise<InlineActio
 
 export async function sendAccountEmailAction(formData: FormData): Promise<InlineActionResult> {
   const organizationId = String(formData.get("organizationId") ?? "");
+  const draftId = String(formData.get("draftId") ?? "").trim();
 
   return withInlineWriteAccess(async (context) => {
     await sendAccountEmail(context, {
@@ -376,6 +378,54 @@ export async function sendAccountEmailAction(formData: FormData): Promise<Inline
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
       attachment: await parseOptionalEmailAttachment(formData),
+    });
+    if (draftId) {
+      try {
+        await deleteEmailDraft(context, {
+          organizationId,
+          draftId,
+        });
+      } catch (error) {
+        console.warn("Email sent, but failed to remove saved draft.", error);
+      }
+    }
+    revalidateContactsSurface(organizationId);
+  });
+}
+
+export async function saveEmailDraftAction(formData: FormData): Promise<InlineActionResult> {
+  const organizationId = String(formData.get("organizationId") ?? "");
+
+  try {
+    const access = await authorizePartnersAccess("write");
+    if (!access.ok) {
+      return { ok: false, error: access.message };
+    }
+
+    const draft = await saveEmailDraft(access.context, {
+      draftId: String(formData.get("draftId") ?? ""),
+      organizationId,
+      contactId: String(formData.get("contactId") ?? "") || undefined,
+      threadId: String(formData.get("threadId") ?? "") || undefined,
+      fromEmail: String(formData.get("fromEmail") ?? "") || undefined,
+      toEmail: String(formData.get("toEmail") ?? ""),
+      subject: String(formData.get("subject") ?? ""),
+      body: String(formData.get("body") ?? ""),
+    });
+    revalidateContactsSurface(organizationId);
+    return { ok: true, draftId: draft.id };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function deleteEmailDraftAction(formData: FormData): Promise<InlineActionResult> {
+  const organizationId = String(formData.get("organizationId") ?? "");
+
+  return withInlineWriteAccess(async (context) => {
+    await deleteEmailDraft(context, {
+      organizationId,
+      draftId: String(formData.get("draftId") ?? ""),
     });
     revalidateContactsSurface(organizationId);
   });

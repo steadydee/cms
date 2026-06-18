@@ -112,6 +112,7 @@ model PartnerOrganization {
   researchFindings ResearchFinding[]
   emailThreads    EmailThread[]
   emailMessages   EmailMessage[]
+  emailDrafts      EmailDraft[]
 
   @@index([propertyId, status])
   @@index([propertyId, visitStatus])
@@ -218,6 +219,7 @@ model PartnerContact {
   tasks           FollowUpTask[]
   emailThreads    EmailThread[]
   emailMessages   EmailMessage[]
+  emailDrafts      EmailDraft[]
 
   @@index([organizationId])
 }
@@ -261,6 +263,7 @@ model EmailThread {
   organization        PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contact             PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
   messages            EmailMessage[]
+  drafts              EmailDraft[]
 
   @@unique([mailboxConnectionId, providerThreadId])
   @@index([organizationId, lastMessageAt])
@@ -298,6 +301,29 @@ model EmailMessage {
   @@index([organizationId, sentAt])
   @@index([contactId, sentAt])
   @@index([emailThreadId, sentAt])
+}
+
+model EmailDraft {
+  id                String              @id @default(cuid())
+  organizationId    String
+  contactId         String?
+  emailThreadId     String?
+  fromEmail         String?
+  toEmail           String?
+  subject           String?
+  bodyText          String
+  createdByUserId   String
+  createdByUserName String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  organization      PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contact           PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  emailThread       EmailThread?        @relation(fields: [emailThreadId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, updatedAt])
+  @@index([contactId, updatedAt])
+  @@index([emailThreadId, updatedAt])
+  @@index([createdByUserId, updatedAt])
 }
 
 model OutreachTouch {

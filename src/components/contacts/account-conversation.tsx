@@ -3,8 +3,8 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Inbox, Mail, Paperclip, RefreshCw, Reply, Send, WandSparkles, X } from "lucide-react";
-import { sendAccountEmailAction, syncMailboxAction } from "@/app/(app)/contacts/actions";
+import { FileText, Inbox, Mail, Paperclip, RefreshCw, Reply, Save, Send, Trash2, WandSparkles, X } from "lucide-react";
+import { deleteEmailDraftAction, saveEmailDraftAction, sendAccountEmailAction, syncMailboxAction } from "@/app/(app)/contacts/actions";
 import type { getContactDetailPage } from "@/lib/services/partners";
 
 type ContactDetailData = NonNullable<Awaited<ReturnType<typeof getContactDetailPage>>>;
@@ -16,6 +16,12 @@ type AccountConversationProps = {
 type SaveState = {
   kind: "idle" | "success" | "error";
   message?: string;
+};
+
+type InlineActionResult = {
+  ok: boolean;
+  error?: string;
+  draftId?: string;
 };
 
 type RecipientOption = {
@@ -161,13 +167,15 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   }, [contact]);
 
   const defaultRecipient = recipientOptions[0] ?? null;
-  const [activeThreadId, setActiveThreadId] = useState(contact.emailThreads[0]?.id ?? "");
+  const latestDraft = contact.emailDrafts[0] ?? null;
+  const [activeDraftId, setActiveDraftId] = useState(latestDraft?.id ?? "");
+  const [activeThreadId, setActiveThreadId] = useState(latestDraft?.emailThreadId ?? contact.emailThreads[0]?.id ?? "");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [fromEmail, setFromEmail] = useState(contact.mailbox.fromOptions[0]?.email ?? contact.mailbox.connectedEmail ?? "");
-  const [toEmail, setToEmail] = useState(defaultRecipient?.email ?? "");
-  const [contactId, setContactId] = useState(defaultRecipient?.contactId ?? "");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [fromEmail, setFromEmail] = useState(latestDraft?.fromEmail ?? contact.mailbox.fromOptions[0]?.email ?? contact.mailbox.connectedEmail ?? "");
+  const [toEmail, setToEmail] = useState(latestDraft?.toEmail ?? defaultRecipient?.email ?? "");
+  const [contactId, setContactId] = useState(latestDraft?.contactId ?? defaultRecipient?.contactId ?? "");
+  const [subject, setSubject] = useState(latestDraft?.subject ?? "");
+  const [body, setBody] = useState(latestDraft?.bodyText ?? "");
   const [attachment, setAttachment] = useState<File | null>(null);
 
   const activeThread = contact.emailThreads.find((thread) => thread.id === activeThreadId) ?? null;
@@ -176,6 +184,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     return option.email.toLowerCase() === toEmail.toLowerCase() && optionContactId === contactId;
   })?.key ?? "";
   const conversationReturnTo = `/contacts/${contact.id}`;
+  const hasDraftContent = Boolean(toEmail.trim() || subject.trim() || body.trim());
 
   function clearAttachment() {
     setAttachment(null);
@@ -185,6 +194,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   }
 
   function openNewDraft() {
+    setActiveDraftId("");
     setActiveThreadId("");
     setSelectedTemplateId("");
     setSubject("");
@@ -205,6 +215,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     setContactId(matchedRecipient?.contactId ?? activeThread.contact?.id ?? "");
     setSubject(getReplySubject(activeThread.subject));
     setBody("");
+    setActiveDraftId("");
     clearAttachment();
     setSaveState({ kind: "idle" });
   }
@@ -216,11 +227,37 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     setContactId(selected.contactId ?? "");
   }
 
+  function loadDraft(draft: ContactDetailData["emailDrafts"][number]) {
+    setActiveDraftId(draft.id);
+    setActiveThreadId(draft.emailThreadId ?? "");
+    setSelectedTemplateId("");
+    setFromEmail(draft.fromEmail ?? contact.mailbox.fromOptions[0]?.email ?? contact.mailbox.connectedEmail ?? "");
+    setToEmail(draft.toEmail ?? "");
+    setContactId(draft.contactId ?? "");
+    setSubject(draft.subject ?? "");
+    setBody(draft.bodyText);
+    clearAttachment();
+    setSaveState({ kind: "idle" });
+  }
+
+  function buildComposerFormData() {
+    const formData = new FormData();
+    formData.set("organizationId", contact.id);
+    formData.set("fromEmail", fromEmail);
+    formData.set("toEmail", toEmail);
+    formData.set("subject", subject);
+    formData.set("body", body);
+    if (activeDraftId) formData.set("draftId", activeDraftId);
+    if (contactId) formData.set("contactId", contactId);
+    if (activeThread) formData.set("threadId", activeThread.id);
+    return formData;
+  }
+
   async function runAction(
-    action: (formData: FormData) => Promise<{ ok: boolean; error?: string }>,
+    action: (formData: FormData) => Promise<InlineActionResult>,
     formData: FormData,
     successMessage: string,
-    onSuccess?: () => void
+    onSuccess?: (result: InlineActionResult) => void
   ) {
     startTransition(async () => {
       const result = await action(formData);
@@ -230,7 +267,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
       }
 
       setSaveState({ kind: "success", message: successMessage });
-      onSuccess?.();
+      onSuccess?.(result);
       router.refresh();
     });
   }
@@ -373,6 +410,77 @@ export function AccountConversation({ contact }: AccountConversationProps) {
           </div>
         </div>
 
+        <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--line-soft)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Drafts</p>
+            <span className="px-4 py-3 text-[11px] text-[var(--ink-soft)]">{contact.emailDrafts.length}</span>
+          </div>
+
+          <div className="border-t border-[var(--line)]">
+            {contact.emailDrafts.length === 0 ? (
+              <div className="px-4 py-5 text-[12px] leading-relaxed text-[var(--ink-soft)]">
+                No saved drafts yet.
+              </div>
+            ) : (
+              contact.emailDrafts.map((draft) => (
+                <div
+                  key={draft.id}
+                  className={`grid gap-3 border-t border-[var(--line)] px-4 py-3 first:border-t-0 md:grid-cols-[minmax(0,1fr)_auto] ${
+                    activeDraftId === draft.id ? "bg-[var(--accent-soft)]" : "bg-[var(--card)]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => loadDraft(draft)}
+                    className="min-w-0 text-left"
+                  >
+                    <p className="truncate text-[13px] font-medium text-[var(--ink)]">
+                      {draft.subject || draft.toEmail || "Untitled draft"}
+                    </p>
+                    <p className="mt-1 truncate text-[12px] text-[var(--ink-soft)]">
+                      {draft.contact?.fullName || draft.toEmail || contact.name}
+                      {" · "}
+                      Updated {formatDateTime(draft.updatedAt)}
+                    </p>
+                    {draft.bodyText.trim() ? (
+                      <p className="mt-1 truncate text-[12px] text-[var(--ink-faint)]">{draft.bodyText.trim()}</p>
+                    ) : null}
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => loadDraft(draft)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)]"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Load
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        const formData = new FormData();
+                        formData.set("organizationId", contact.id);
+                        formData.set("draftId", draft.id);
+                        runAction(deleteEmailDraftAction, formData, "Draft deleted.", () => {
+                          if (activeDraftId === draft.id) {
+                            openNewDraft();
+                          }
+                        });
+                      }}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-[12px] font-medium text-[var(--ink-soft)] disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         <div className="space-y-5">
           {activeThread ? (
             <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--card)]">
@@ -504,7 +612,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Attachment</p>
-                  <p className="mt-1 text-[12px] text-[var(--ink-faint)]">One file, sent only with this email.</p>
+                  <p className="mt-1 text-[12px] text-[var(--ink-faint)]">One file, sent only with this email. Attachments are not saved with drafts.</p>
                 </div>
 
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] font-medium text-[var(--ink-soft)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
@@ -555,16 +663,47 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                disabled={!hasDraftContent || isPending}
+                onClick={() => {
+                  runAction(
+                    saveEmailDraftAction,
+                    buildComposerFormData(),
+                    activeDraftId ? "Draft updated." : "Draft saved.",
+                    (result) => {
+                      if (result.draftId) {
+                        setActiveDraftId(result.draftId);
+                      }
+                    }
+                  );
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)] disabled:opacity-60"
+              >
+                <Save className="h-4 w-4" />
+                {isPending ? "Saving..." : activeDraftId ? "Update draft" : "Save draft"}
+              </button>
+
+              {activeDraftId ? (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => {
+                    const formData = new FormData();
+                    formData.set("organizationId", contact.id);
+                    formData.set("draftId", activeDraftId);
+                    runAction(deleteEmailDraftAction, formData, "Draft deleted.", openNewDraft);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)] disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete draft
+                </button>
+              ) : null}
+
+              <button
+                type="button"
                 disabled={!contact.mailbox.connected || !fromEmail.trim() || !toEmail.trim() || !subject.trim() || !body.trim() || isPending}
                 onClick={() => {
-                  const formData = new FormData();
-                  formData.set("organizationId", contact.id);
-                  formData.set("fromEmail", fromEmail);
-                  formData.set("toEmail", toEmail);
-                  formData.set("subject", subject);
-                  formData.set("body", body);
-                  if (contactId) formData.set("contactId", contactId);
-                  if (activeThread) formData.set("threadId", activeThread.id);
+                  const formData = buildComposerFormData();
                   if (attachment) formData.set("attachment", attachment);
                   runAction(
                     sendAccountEmailAction,
@@ -572,6 +711,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     activeThread ? "Reply sent through Gmail." : "Email sent through Gmail.",
                     () => {
                       clearAttachment();
+                      setActiveDraftId("");
                       if (!activeThread) {
                         setBody("");
                       }
