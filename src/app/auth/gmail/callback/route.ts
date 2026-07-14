@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
     await setFlashMessage({
       type: "success",
-      text: `Connected Gmail inbox ${mailbox.emailAddress}. Use Sync inbox to pull recent replies into Partners.`,
+      text: `Connected Gmail inbox ${mailbox.emailAddress}. Replies now sync automatically into Partners.`,
     });
   } catch (callbackError) {
     await setFlashMessage({

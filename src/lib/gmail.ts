@@ -1,6 +1,11 @@
 import "server-only";
 
 import {
+  collectGmailHistoryMessageRefs,
+  type GmailHistoryPage,
+} from "@/lib/gmail-sync";
+
+import {
   createCipheriv,
   createDecipheriv,
   createHash,
@@ -88,6 +93,12 @@ type GmailProfile = {
   historyId?: string;
   messagesTotal?: number;
   threadsTotal?: number;
+};
+
+export type GmailThread = {
+  id: string;
+  messages?: GmailMessage[];
+  historyId?: string;
 };
 
 function getOAuthSecret() {
@@ -410,17 +421,47 @@ export async function listRecentGmailMessages(accessToken: string, maxResults = 
   return gmailFetch<GmailMessagesListResponse>(accessToken, `messages?${params.toString()}`);
 }
 
-export async function listGmailHistory(accessToken: string, startHistoryId: string) {
+async function listGmailHistoryPage(accessToken: string, startHistoryId: string, pageToken?: string) {
   const params = new URLSearchParams({
     startHistoryId,
     maxResults: "100",
   });
 
+  if (pageToken) {
+    params.set("pageToken", pageToken);
+  }
+
   return gmailFetch<GmailHistoryResponse>(accessToken, `history?${params.toString()}`);
+}
+
+export async function listGmailHistory(accessToken: string, startHistoryId: string): Promise<GmailHistoryResponse> {
+  const pages: GmailHistoryPage[] = [];
+  let nextPageToken: string | undefined;
+
+  do {
+    const page = await listGmailHistoryPage(accessToken, startHistoryId, nextPageToken);
+    pages.push(page);
+    nextPageToken = page.nextPageToken;
+  } while (nextPageToken);
+
+  const collected = collectGmailHistoryMessageRefs(pages);
+  const messages = Array.from(collected.messageRefs.values());
+  const latestPage = pages[pages.length - 1];
+
+  return {
+    history: messages.length > 0
+      ? [{ id: collected.latestHistoryId || latestPage?.historyId || startHistoryId, messages }]
+      : [],
+    historyId: collected.latestHistoryId || latestPage?.historyId,
+  } satisfies GmailHistoryResponse;
 }
 
 export async function getGmailMessage(accessToken: string, messageId: string) {
   return gmailFetch<GmailMessage>(accessToken, `messages/${messageId}?format=full`);
+}
+
+export async function getGmailThread(accessToken: string, threadId: string) {
+  return gmailFetch<GmailThread>(accessToken, `threads/${threadId}?format=full`);
 }
 
 export async function sendGmailRawMessage(accessToken: string, input: { raw: string; threadId?: string }) {

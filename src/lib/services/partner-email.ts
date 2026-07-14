@@ -13,6 +13,7 @@ import {
   getGmailHeader,
   getGmailMessage,
   getGmailProfile,
+  getGmailThread,
   GMAIL_SYNC_LABEL,
   isGmailConfigured,
   parseGmailMessageBody,
@@ -22,6 +23,7 @@ import {
   listGmailHistory,
   type GmailMessage,
 } from "@/lib/gmail";
+import { buildTrackedGmailThreadImports, type TrackedGmailThreadTarget } from "@/lib/gmail-sync";
 import { db } from "@/lib/db";
 import { assertLiveEmailSendsAllowed } from "@/lib/email-safety";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
@@ -29,6 +31,7 @@ import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
 const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
 const GMAIL_SYNC_ACTOR_NAME = "Gmail sync";
 const MAX_ACCOUNT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const DEFAULT_TRACKED_THREAD_SYNC_LIMIT = 200;
 
 export type MailboxFromOption = {
   email: string;
@@ -85,6 +88,14 @@ function getConfiguredAliasEntries() {
     .split(/[\n,;]/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function getTrackedThreadSyncLimit() {
+  const configured = Number(process.env.OW_PARTNERS_GMAIL_SYNC_THREAD_LIMIT || "");
+  if (Number.isInteger(configured) && configured > 0) {
+    return Math.min(configured, 1000);
+  }
+  return DEFAULT_TRACKED_THREAD_SYNC_LIMIT;
 }
 
 export function getMailboxFromOptions(connectedEmail: string | null | undefined): MailboxFromOption[] {
@@ -148,7 +159,10 @@ function isOwnMailboxIdentity(fromEmail: string | null, ownEmails: string[]) {
 }
 
 function hasEmailStatusPriority(status: RelationshipStatus) {
-  return status === "active_partner" || status === "proposal_sent" || status === "visited";
+  return status === "active_partner"
+    || status === "proposal_sent"
+    || status === "visit_scheduled"
+    || status === "visited";
 }
 
 function getReplyStatus(currentStatus: RelationshipStatus, direction: "inbound" | "outbound") {
@@ -156,7 +170,18 @@ function getReplyStatus(currentStatus: RelationshipStatus, direction: "inbound" 
     return currentStatus;
   }
 
-  return direction === "inbound" ? "engaged" : "awaiting_reply";
+  if (direction === "inbound") return "engaged";
+
+  return currentStatus === "not_contacted"
+    || currentStatus === "contacted"
+    || currentStatus === "awaiting_reply"
+    ? "awaiting_reply"
+    : currentStatus;
+}
+
+function maxDate(current: Date | null | undefined, candidate: Date) {
+  if (!current) return candidate;
+  return current > candidate ? current : candidate;
 }
 
 async function getScopedOrganization(propertyId: string, organizationId: string) {
@@ -459,6 +484,7 @@ async function storeGmailMessage(input: {
       select: {
         id: true,
         status: true,
+        lastContactedAt: true,
       },
     });
 
@@ -477,6 +503,7 @@ async function storeGmailMessage(input: {
         id: true,
         participantEmails: true,
         contactId: true,
+        lastMessageAt: true,
         lastInboundAt: true,
         lastOutboundAt: true,
       },
@@ -498,9 +525,9 @@ async function storeGmailMessage(input: {
             subject: subject?.trim() || undefined,
             snippet: input.gmailMessage.snippet?.trim() || undefined,
             participantEmails,
-            lastMessageAt: sentAt,
-            lastInboundAt: direction === "inbound" ? sentAt : existingThread.lastInboundAt,
-            lastOutboundAt: direction === "outbound" ? sentAt : existingThread.lastOutboundAt,
+            lastMessageAt: maxDate(existingThread.lastMessageAt, sentAt),
+            lastInboundAt: direction === "inbound" ? maxDate(existingThread.lastInboundAt, sentAt) : existingThread.lastInboundAt,
+            lastOutboundAt: direction === "outbound" ? maxDate(existingThread.lastOutboundAt, sentAt) : existingThread.lastOutboundAt,
           },
         })
       : await tx.emailThread.create({
@@ -555,14 +582,20 @@ async function storeGmailMessage(input: {
     await tx.partnerOrganization.update({
       where: { id: match.organizationId },
       data: {
-        lastContactedAt: sentAt,
+        lastContactedAt: maxDate(organization.lastContactedAt, sentAt),
         status: getReplyStatus(organization.status, direction),
       },
     });
 
     if (match.contactId) {
-      await tx.partnerContact.update({
-        where: { id: match.contactId },
+      await tx.partnerContact.updateMany({
+        where: {
+          id: match.contactId,
+          OR: [
+            { lastContactedAt: null },
+            { lastContactedAt: { lt: sentAt } },
+          ],
+        },
         data: {
           lastContactedAt: sentAt,
         },
@@ -819,12 +852,59 @@ export async function connectPropertyMailbox(input: {
   });
 }
 
-export async function syncMailbox(context: PartnersRequestContext) {
-  const { connection, accessToken } = await getMailboxAuthorization(context.propertyId);
+async function listTrackedGmailThreadTargets(input: {
+  propertyId: string;
+  mailboxConnectionId: string;
+}): Promise<TrackedGmailThreadTarget[]> {
+  return db.emailThread.findMany({
+    where: {
+      mailboxConnectionId: input.mailboxConnectionId,
+      organization: {
+        propertyId: input.propertyId,
+        archivedAt: null,
+      },
+    },
+    orderBy: [
+      { lastMessageAt: "desc" },
+      { updatedAt: "desc" },
+    ],
+    take: getTrackedThreadSyncLimit(),
+    select: {
+      organizationId: true,
+      contactId: true,
+      providerThreadId: true,
+    },
+  });
+}
+
+async function labelSyncedGmailMessage(input: {
+  accessToken: string;
+  labelId?: string | null;
+  message: GmailMessage;
+}) {
+  if (!input.labelId) return false;
+  if (input.message.labelIds?.includes(input.labelId)) return false;
+
+  try {
+    await addLabelToGmailMessage(input.accessToken, input.message.id, input.labelId);
+    return true;
+  } catch (error) {
+    console.warn("Failed to label synced Gmail message", {
+      messageId: input.message.id,
+      error,
+    });
+    return false;
+  }
+}
+
+async function syncPropertyMailbox(propertyId: string) {
+  const { connection, accessToken } = await getMailboxAuthorization(propertyId);
 
   try {
     const messageRefs = new Map<string, { id: string; threadId: string }>();
     let latestHistoryId: string | null = connection.historyId || null;
+    let trackedThreadsChecked = 0;
+    let labeled = 0;
 
     if (connection.historyId) {
       try {
@@ -862,7 +942,7 @@ export async function syncMailbox(context: PartnersRequestContext) {
     for (const reference of messageRefs.values()) {
       const message = await getGmailMessage(accessToken, reference.id);
       const result = await storeGmailMessage({
-        propertyId: context.propertyId,
+        propertyId,
         mailboxConnectionId: connection.id,
         mailboxEmail: connection.emailAddress,
         outboundIdentityEmails: getMailboxFromOptions(connection.emailAddress).map((option) => option.email),
@@ -873,10 +953,45 @@ export async function syncMailbox(context: PartnersRequestContext) {
 
       if (result.imported) {
         imported += 1;
+        if (await labelSyncedGmailMessage({ accessToken, labelId: connection.labelId, message })) {
+          labeled += 1;
+        }
       } else if (result.reason === "unmatched") {
         unmatched += 1;
       } else {
         skipped += 1;
+      }
+    }
+
+    const trackedThreads = await listTrackedGmailThreadTargets({
+      propertyId,
+      mailboxConnectionId: connection.id,
+    });
+
+    for (const target of trackedThreads) {
+      const thread = await getGmailThread(accessToken, target.providerThreadId);
+      trackedThreadsChecked += 1;
+
+      for (const item of buildTrackedGmailThreadImports(target, thread)) {
+        const result = await storeGmailMessage({
+          propertyId,
+          mailboxConnectionId: connection.id,
+          mailboxEmail: connection.emailAddress,
+          outboundIdentityEmails: getMailboxFromOptions(connection.emailAddress).map((option) => option.email),
+          gmailMessage: item.gmailMessage,
+          forcedMatch: item.forcedMatch,
+          actorUserId: GMAIL_SYNC_ACTOR_ID,
+          actorUserName: GMAIL_SYNC_ACTOR_NAME,
+        });
+
+        if (result.imported) {
+          imported += 1;
+          if (await labelSyncedGmailMessage({ accessToken, labelId: connection.labelId, message: item.gmailMessage })) {
+            labeled += 1;
+          }
+        } else {
+          skipped += 1;
+        }
       }
     }
 
@@ -896,6 +1011,8 @@ export async function syncMailbox(context: PartnersRequestContext) {
       imported,
       unmatched,
       skipped,
+      labeled,
+      trackedThreadsChecked,
     };
   } catch (error) {
     await db.mailboxConnection.update({
@@ -906,6 +1023,62 @@ export async function syncMailbox(context: PartnersRequestContext) {
     });
     throw error;
   }
+}
+
+export async function syncMailbox(context: PartnersRequestContext) {
+  return syncPropertyMailbox(context.propertyId);
+}
+
+export async function syncAllConnectedMailboxes() {
+  const connections = await db.mailboxConnection.findMany({
+    orderBy: { updatedAt: "desc" },
+    select: {
+      propertyId: true,
+      emailAddress: true,
+    },
+  });
+
+  const results: Array<{
+    propertyId: string;
+    emailAddress: string;
+    ok: boolean;
+    imported?: number;
+    unmatched?: number;
+    skipped?: number;
+    labeled?: number;
+    trackedThreadsChecked?: number;
+    error?: string;
+  }> = [];
+
+  for (const connection of connections) {
+    try {
+      const result = await syncPropertyMailbox(connection.propertyId);
+      results.push({
+        propertyId: connection.propertyId,
+        emailAddress: connection.emailAddress,
+        ok: true,
+        ...result,
+      });
+    } catch (error) {
+      results.push({
+        propertyId: connection.propertyId,
+        emailAddress: connection.emailAddress,
+        ok: false,
+        error: error instanceof Error ? error.message : "Mailbox sync failed",
+      });
+    }
+  }
+
+  return {
+    mailboxes: results.length,
+    failed: results.filter((result) => !result.ok).length,
+    imported: results.reduce((sum, result) => sum + (result.imported ?? 0), 0),
+    unmatched: results.reduce((sum, result) => sum + (result.unmatched ?? 0), 0),
+    skipped: results.reduce((sum, result) => sum + (result.skipped ?? 0), 0),
+    labeled: results.reduce((sum, result) => sum + (result.labeled ?? 0), 0),
+    trackedThreadsChecked: results.reduce((sum, result) => sum + (result.trackedThreadsChecked ?? 0), 0),
+    results,
+  };
 }
 
 export async function sendAccountEmail(

@@ -279,7 +279,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-soft)]">Conversation</p>
           <h2 className="mt-2 font-serif text-[24px] font-semibold text-[var(--ink)]">Email threads and replies</h2>
           <p className="mt-2 max-w-[720px] text-[13px] leading-relaxed text-[var(--ink-soft)]">
-            Send 1:1 partner outreach from the connected Gmail inbox. Replies sync back into this account so the thread stays visible here and in Gmail.
+            Send 1:1 partner outreach from the connected Gmail inbox. Replies sync automatically back into this account so the thread stays visible here and in Gmail.
           </p>
         </div>
 
@@ -290,7 +290,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               <p className="mt-1">
                 {contact.mailbox.lastSyncedAt
                   ? `Last synced ${formatDateTime(contact.mailbox.lastSyncedAt)}`
-                  : "Connected. Sync inbox to import replies."}
+                  : "Connected. Automatic reply sync is enabled."}
               </p>
               {contact.mailbox.fromOptions.length > 1 ? (
                 <p className="mt-1">{contact.mailbox.fromOptions.length - 1} send alias{contact.mailbox.fromOptions.length === 2 ? "" : "es"} available</p>
@@ -316,12 +316,12 @@ export function AccountConversation({ contact }: AccountConversationProps) {
             onClick={() => {
               const formData = new FormData();
               formData.set("organizationId", contact.id);
-              runAction(syncMailboxAction, formData, "Inbox synced. Latest Gmail messages were checked for this account.");
+              runAction(syncMailboxAction, formData, "Inbox synced. Latest Gmail threads were checked for this account.");
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] px-4 py-2 text-[13px] font-medium text-[var(--ink-soft)] disabled:opacity-60"
           >
             <RefreshCw className="h-4 w-4" />
-            {isPending ? "Syncing..." : "Sync inbox"}
+            {isPending ? "Syncing..." : "Sync now"}
           </button>
         ) : (
           <Link
