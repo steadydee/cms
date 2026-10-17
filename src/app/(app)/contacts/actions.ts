@@ -28,6 +28,7 @@ type InlineActionResult = {
   ok: boolean;
   error?: string;
   draftId?: string;
+  warning?: string | null;
 };
 
 function parseChannel(value: string | null): OutreachChannel {
@@ -368,17 +369,20 @@ export async function sendAccountEmailAction(formData: FormData): Promise<Inline
   const organizationId = String(formData.get("organizationId") ?? "");
   const draftId = String(formData.get("draftId") ?? "").trim();
 
-  return withInlineWriteAccess(async (context) => {
-    await sendAccountEmail(context, {
+  let warning: string | null = null;
+  const result = await withInlineWriteAccess(async (context) => {
+    const sent = await sendAccountEmail(context, {
       organizationId,
+      draftId: draftId || undefined,
       contactId: String(formData.get("contactId") ?? "") || undefined,
       threadId: String(formData.get("threadId") ?? "") || undefined,
       fromEmail: String(formData.get("fromEmail") ?? "") || undefined,
       toEmail: String(formData.get("toEmail") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
-      attachment: await parseOptionalEmailAttachment(formData),
+      attachment: formData.get("removeAttachment") === "true" ? null : await parseOptionalEmailAttachment(formData),
     });
+    warning = sent.warning;
     if (draftId) {
       try {
         await deleteEmailDraft(context, {
@@ -391,6 +395,7 @@ export async function sendAccountEmailAction(formData: FormData): Promise<Inline
     }
     revalidateContactsSurface(organizationId);
   });
+  return { ...result, warning };
 }
 
 export async function saveEmailDraftAction(formData: FormData): Promise<InlineActionResult> {
@@ -411,6 +416,7 @@ export async function saveEmailDraftAction(formData: FormData): Promise<InlineAc
       toEmail: String(formData.get("toEmail") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
+      attachment: formData.get("removeAttachment") === "true" ? null : await parseOptionalEmailAttachment(formData),
     });
     revalidateContactsSurface(organizationId);
     return { ok: true, draftId: draft.id };

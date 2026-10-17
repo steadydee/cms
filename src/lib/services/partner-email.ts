@@ -21,16 +21,17 @@ import {
   sendGmailRawMessage,
   listRecentGmailMessages,
   listGmailHistory,
+  searchGmailMessages,
   type GmailMessage,
 } from "@/lib/gmail";
 import { buildTrackedGmailThreadImports, type TrackedGmailThreadTarget } from "@/lib/gmail-sync";
 import { db } from "@/lib/db";
-import { assertLiveEmailSendsAllowed } from "@/lib/email-safety";
+import { assertLiveEmailSendsAllowed, getEmailRuntimeLabel } from "@/lib/email-safety";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
+import { attachmentFields, assertNeverContacted, deliverEmailOnce, deliveryAttemptIds, emailAddress, emailPayloadHash, priorContactQuery, type EmailAttachment } from "@/lib/email-delivery";
 
 const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
 const GMAIL_SYNC_ACTOR_NAME = "Gmail sync";
-const MAX_ACCOUNT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const DEFAULT_TRACKED_THREAD_SYNC_LIMIT = 200;
 
 export type MailboxFromOption = {
@@ -428,6 +429,20 @@ async function storeGmailMessage(input: {
   actorUserId: string;
   actorUserName: string;
 }) {
+  // Review messages and replies must never affect an operator, even during later syncs.
+  const reviewAttempt = await db.emailSendAttempt.findFirst({
+    where: {
+      propertyId: input.propertyId, reviewOnly: true, simulated: false,
+      OR: [
+        { providerMessageId: input.gmailMessage.id },
+        { providerThreadId: input.gmailMessage.threadId },
+        { id: { in: deliveryAttemptIds(["message-id", "in-reply-to", "references"].map((header) => getGmailHeader(input.gmailMessage, header))) } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (reviewAttempt) return { imported: false, reason: "review" as const };
+
   const existingMessage = await db.emailMessage.findUnique({
     where: {
       mailboxConnectionId_providerMessageId: {
@@ -634,8 +649,10 @@ export async function listOrganizationEmailDrafts(organizationId: string, proper
   }
 
   return db.emailDraft.findMany({
+    omit: { attachmentContent: true },
     where: {
       organizationId,
+      propertyId,
     },
     include: {
       contact: {
@@ -660,7 +677,10 @@ export async function saveEmailDraft(
   context: PartnersRequestContext,
   input: {
     draftId?: string;
-    organizationId: string;
+    organizationId?: string;
+    reviewOnly?: boolean;
+    firstOutreach?: boolean;
+    attachment?: EmailAttachment | null;
     contactId?: string;
     threadId?: string;
     fromEmail?: string;
@@ -669,16 +689,19 @@ export async function saveEmailDraft(
     body: string;
   }
 ) {
-  const organizationId = input.organizationId.trim();
+  const organizationId = input.organizationId?.trim() || "";
+  const reviewOnly = input.reviewOnly === true;
+  if (reviewOnly && (context.source === "agent" || context.role !== "admin")) throw new Error("Only an administrator may prepare a review-only email.");
+  const attachmentData = attachmentFields(input.attachment);
   const draftId = input.draftId?.trim() || "";
   const contactId = input.contactId?.trim() || "";
   const threadId = input.threadId?.trim() || "";
   const fromEmail = input.fromEmail?.trim() || null;
-  const toEmail = input.toEmail?.trim() || null;
+  const toEmail = reviewOnly ? reviewEmailAddress() : input.toEmail?.trim() || null;
   const subject = input.subject?.trim() || null;
   const bodyText = normalizeEmailTemplateBody(input.body);
 
-  if (!organizationId) {
+  if (!organizationId && !reviewOnly) {
     throw new Error("Account is required.");
   }
 
@@ -686,8 +709,8 @@ export async function saveEmailDraft(
     throw new Error("Add a recipient, subject, or body before saving a draft.");
   }
 
-  const organization = await getScopedOrganization(context.propertyId, organizationId);
-  if (!organization) {
+  const organization = organizationId ? await getScopedOrganization(context.propertyId, organizationId) : null;
+  if ((!organization && !reviewOnly) || (reviewOnly && organizationId)) {
     throw new Error("Account not found.");
   }
 
@@ -698,11 +721,9 @@ export async function saveEmailDraft(
     const existing = await db.emailDraft.findFirst({
       where: {
         id: draftId,
-        organization: {
-          id: organizationId,
-          propertyId: context.propertyId,
-          archivedAt: null,
-        },
+        propertyId: context.propertyId,
+        organizationId: organizationId || null,
+        reviewOnly,
       },
       select: { id: true },
     });
@@ -712,6 +733,7 @@ export async function saveEmailDraft(
     }
 
     return db.emailDraft.update({
+      omit: { attachmentContent: true },
       where: { id: draftId },
       data: {
         contactId: contact?.id ?? null,
@@ -720,6 +742,8 @@ export async function saveEmailDraft(
         toEmail,
         subject,
         bodyText,
+        firstOutreach: input.firstOutreach,
+        ...attachmentData,
         createdByUserId: context.userId,
         createdByUserName: context.userName,
       },
@@ -742,8 +766,13 @@ export async function saveEmailDraft(
   }
 
   return db.emailDraft.create({
+    omit: { attachmentContent: true },
     data: {
-      organizationId,
+      propertyId: context.propertyId,
+      organizationId: organizationId || null,
+      reviewOnly,
+      firstOutreach: input.firstOutreach ?? false,
+      ...attachmentData,
       contactId: contact?.id ?? null,
       emailThreadId: thread?.id ?? null,
       fromEmail,
@@ -802,7 +831,37 @@ export async function deleteEmailDraft(
   }
 
   return db.emailDraft.delete({
+    omit: { attachmentContent: true },
     where: { id: draftId },
+  });
+}
+
+function reviewEmailAddress() {
+  const configured = process.env.OW_PARTNERS_REVIEW_EMAIL?.trim();
+  if (!configured) throw new Error("The administrator review email has not been configured.");
+  return emailAddress(configured);
+}
+
+export async function getEmailDraft(propertyId: string, draftId: string) {
+  const draft = await db.emailDraft.findFirst({ where: { id: draftId, propertyId }, omit: { attachmentContent: true } });
+  if (!draft) throw new Error("Draft not found.");
+  return draft;
+}
+
+export async function sendSavedEmailDraft(context: PartnersRequestContext, input: { draftId: string; requestId: string; simulation?: EmailSimulation }) {
+  const draft = await getEmailDraft(context.propertyId, input.draftId);
+  return sendAccountEmail(context, {
+    organizationId: draft.organizationId || undefined,
+    draftId: draft.id,
+    requestId: input.requestId,
+    fromEmail: draft.fromEmail || undefined,
+    toEmail: draft.toEmail || "",
+    subject: draft.subject || "",
+    body: draft.bodyText,
+    contactId: draft.contactId || undefined,
+    threadId: draft.emailThreadId || undefined,
+    firstOutreach: draft.firstOutreach,
+    simulation: input.simulation,
   });
 }
 
@@ -1081,31 +1140,76 @@ export async function syncAllConnectedMailboxes() {
   };
 }
 
+export type EmailSimulation = "success" | "timeout" | "post_send_failure" | "prior_gmail_contact";
+
+const historyInclude = {
+  contacts: true,
+  _count: { select: { touches: true, emailMessages: true, emailThreads: true } },
+} satisfies Prisma.PartnerOrganizationInclude;
+
+async function checkFirstOutreach(propertyId: string, organizationId: string, recipient: string, client: Prisma.TransactionClient = db) {
+  const organization = await client.partnerOrganization.findFirst({
+    where: { id: organizationId, propertyId }, include: historyInclude,
+  });
+  if (!organization) throw new Error("Account not found.");
+  assertNeverContacted(organization);
+  const addresses = [organization.email, ...organization.contacts.map((person) => person.email)]
+    .filter((value): value is string => Boolean(value?.trim())).map(emailAddress);
+  if (!addresses.includes(recipient)) throw new Error("First outreach recipient must belong to this account.");
+  const related = await client.partnerOrganization.findMany({
+    where: { propertyId, id: { not: organizationId }, OR: [
+      ...addresses.map((email) => ({ email: { equals: email, mode: "insensitive" as const } })),
+      { contacts: { some: { OR: addresses.map((email) => ({ email: { equals: email, mode: "insensitive" as const } })) } } },
+    ] }, include: historyInclude,
+  });
+  for (const account of related) assertNeverContacted(account);
+  const previous = await client.emailSendAttempt.findFirst({
+    where: { propertyId, reviewOnly: false, OR: [{ organizationId }, { toEmail: { in: addresses } }] },
+    select: { id: true },
+  });
+  if (previous) throw new Error("First outreach blocked: an earlier delivery attempt already exists.");
+  return addresses;
+}
+
 export async function sendAccountEmail(
   context: PartnersRequestContext,
   input: {
-    organizationId: string;
+    organizationId?: string;
+    draftId?: string;
+    requestId?: string;
+    firstOutreach?: boolean;
+    simulation?: EmailSimulation;
     contactId?: string;
     threadId?: string;
     fromEmail?: string;
     toEmail: string;
     subject: string;
     body: string;
-    attachment?: {
-      filename: string;
-      contentType?: string | null;
-      content: Buffer;
-      size: number;
-    };
+    attachment?: EmailAttachment | null;
   }
 ) {
-  const organizationId = input.organizationId.trim();
-  const toEmail = input.toEmail.trim();
-  const subject = input.subject.trim();
+  if (context.source === "agent") throw new Error("APPROVAL_REQUIRED: automated outreach has not been activated.");
+  const simulation = input.simulation;
+  if (simulation && (getEmailRuntimeLabel() !== "test" || context.role !== "admin" || !["success", "timeout", "post_send_failure", "prior_gmail_contact"].includes(simulation))) {
+    throw new Error("Email simulation is restricted to administrators in the test environment.");
+  }
+  if (!simulation) assertLiveEmailSendsAllowed();
+  const organizationId = input.organizationId?.trim() || "";
+  const draft = input.draftId ? await db.emailDraft.findFirst({ where: { id: input.draftId, propertyId: context.propertyId } }) : null;
+  if (input.draftId && (!draft || (draft.organizationId || "") !== organizationId)) throw new Error("Draft not found for account.");
+  const reviewOnly = draft?.reviewOnly === true;
+  if (reviewOnly && context.role !== "admin") throw new Error("Only an administrator may send a review-only email.");
+  const toEmail = emailAddress(reviewOnly ? reviewEmailAddress() : input.toEmail);
+  const subject = `${reviewOnly && !input.subject.startsWith("[REVIEW ONLY]") ? "[REVIEW ONLY] " : ""}${input.subject.trim()}`;
   const body = normalizeEmailTemplateBody(input.body).trim();
-  const attachment = input.attachment;
+  const attachment = input.attachment === undefined && draft?.attachmentContent
+    ? { filename: draft.attachmentName!, contentType: draft.attachmentType, content: Buffer.from(draft.attachmentContent), size: draft.attachmentSize! }
+    : input.attachment;
+  const attachmentData = attachmentFields(attachment);
+  if (draft?.attachmentContent && input.attachment === undefined && attachmentData.attachmentSha256 !== draft.attachmentSha256) throw new Error("Saved attachment integrity check failed.");
+  if (simulation && !toEmail.endsWith(".invalid")) throw new Error("Simulation recipients must use .invalid addresses.");
 
-  if (!organizationId) {
+  if (!organizationId && !reviewOnly) {
     throw new Error("Account is required.");
   }
 
@@ -1121,20 +1225,8 @@ export async function sendAccountEmail(
     throw new Error("Body is required.");
   }
 
-  if (attachment) {
-    if (attachment.size > MAX_ACCOUNT_EMAIL_ATTACHMENT_BYTES) {
-      throw new Error("Attachments are limited to 10 MB.");
-    }
-
-    if (!attachment.content.byteLength) {
-      throw new Error("Attachment is empty.");
-    }
-  }
-
-  assertLiveEmailSendsAllowed();
-
-  const organization = await getScopedOrganization(context.propertyId, organizationId);
-  if (!organization) {
+  const organization = organizationId ? await getScopedOrganization(context.propertyId, organizationId) : null;
+  if (!organization && !reviewOnly) {
     throw new Error("Account not found.");
   }
 
@@ -1142,8 +1234,16 @@ export async function sendAccountEmail(
     ? await assertContactBelongsToOrganization(organizationId, input.contactId.trim())
     : null;
 
-  const { connection, accessToken } = await getMailboxAuthorization(context.propertyId);
-  const fromOption = resolveMailboxFromOption(connection.emailAddress, input.fromEmail);
+  const authorization = simulation ? null : await getMailboxAuthorization(context.propertyId);
+  const connection = authorization?.connection;
+  const accessToken = authorization?.accessToken;
+  const fromOption = simulation ? { email: "sender@example.invalid", name: "Acme UAT" }
+    : resolveMailboxFromOption(connection!.emailAddress, reviewOnly ? "info@owlswatch.com" : input.fromEmail);
+  const fromEmail = emailAddress(fromOption.email);
+  const firstOutreach = !reviewOnly && (input.firstOutreach === true || draft?.firstOutreach === true || (organization?.status === "not_contacted" && !input.threadId));
+  if ((firstOutreach || reviewOnly) && (!attachment || attachment.content.subarray(0, 5).toString() !== "%PDF-")) {
+    throw new Error("First outreach and review emails require the saved PDF attachment.");
+  }
   let threadRecord:
     | {
         id: string;
@@ -1156,7 +1256,7 @@ export async function sendAccountEmail(
       where: {
         id: input.threadId.trim(),
         organizationId,
-        mailboxConnectionId: connection.id,
+        mailboxConnectionId: connection?.id,
       },
       select: {
         id: true,
@@ -1193,52 +1293,124 @@ export async function sendAccountEmail(
     inReplyTo = references[references.length - 1] ?? null;
   }
 
-  const raw = buildRawGmailMessage({
-    fromEmail: fromOption.email,
-    fromName: fromOption.name,
-    toEmail,
-    subject,
-    bodyText: body,
-    inReplyTo,
-    references,
-    attachment: attachment
-      ? {
-          filename: attachment.filename,
-          contentType: attachment.contentType,
-          content: attachment.content,
-        }
-      : null,
+  const payloadHash = emailPayloadHash({ organizationId, fromEmail, toEmail, subject, body,
+    threadId: threadRecord?.id || null, attachmentSha256: attachmentData.attachmentSha256 || null,
+    attachmentName: attachment?.filename || null, attachmentType: attachment?.contentType || null, reviewOnly, simulated: Boolean(simulation),
   });
-
-  const sent = await sendGmailRawMessage(accessToken, {
-    raw,
-    threadId: threadRecord?.providerThreadId,
-  });
-
-  if (connection.labelId) {
-    await addLabelToGmailMessage(accessToken, sent.id, connection.labelId);
-  }
-
-  const gmailMessage = await getGmailMessage(accessToken, sent.id);
-  const result = await storeGmailMessage({
-    propertyId: context.propertyId,
-    mailboxConnectionId: connection.id,
-    mailboxEmail: connection.emailAddress,
-    outboundIdentityEmails: getMailboxFromOptions(connection.emailAddress).map((option) => option.email),
-    gmailMessage,
-    forcedMatch: {
-      organizationId: organization.id,
-      contactId: contact?.id ?? null,
-    },
-    actorUserId: context.userId,
-    actorUserName: context.userName,
-  });
-
-  return {
-    providerMessageId: sent.id,
-    providerThreadId: sent.threadId,
-    stored: result.imported,
+  const requestKey = input.requestId?.trim() || payloadHash;
+  if (requestKey.length > 200) throw new Error("Request ID is too long.");
+  const dedupeKey = `${context.propertyId}:${payloadHash}`;
+  const findExisting = () => db.emailSendAttempt.findFirst({ where: { propertyId: context.propertyId, OR: [{ requestKey }, { dedupeKey }] } });
+  const validateExisting = (attempt: NonNullable<Awaited<ReturnType<typeof findExisting>>>) => {
+    if (attempt.payloadHash !== payloadHash) throw new Error("This request ID was already used for a different email.");
+    return { ...attempt, fresh: false };
   };
+  const sent = await deliverEmailOnce({
+    claim: async () => {
+      const existing = await findExisting();
+      if (existing) return validateExisting(existing);
+      if (firstOutreach) {
+        const addresses = await checkFirstOutreach(context.propertyId, organizationId, toEmail);
+        if (!simulation && addresses.some((address) => getMailboxFromOptions(connection!.emailAddress).some((own) => emailAddress(own.email) === address))) {
+          throw new Error("First outreach cannot be sent to an internal mailbox.");
+        }
+        const previous = simulation ? { messages: simulation === "prior_gmail_contact" ? [{ id: "simulated-prior" }] : [] }
+          : await searchGmailMessages(accessToken!, priorContactQuery(addresses));
+        if (previous.messages?.length) throw new Error("First outreach blocked: Gmail already contains correspondence with this account.");
+      }
+      try {
+        const attempt = await db.$transaction(async (tx) => {
+          if (firstOutreach) await checkFirstOutreach(context.propertyId, organizationId, toEmail, tx);
+          return tx.emailSendAttempt.create({ data: {
+            propertyId: context.propertyId, organizationId: organizationId || null, draftId: draft?.id,
+            requestKey, payloadHash, dedupeKey,
+            firstOutreachKey: firstOutreach ? `${context.propertyId}:${organizationId}` : null,
+            firstRecipientKey: firstOutreach ? `${context.propertyId}:${toEmail}` : null,
+            reviewOnly, simulated: Boolean(simulation), toEmail, fromEmail, subject,
+            attachmentName: attachment?.filename, attachmentSha256: attachmentData.attachmentSha256,
+            actorId: context.userId, actorLabel: context.userName,
+          } });
+        }, { isolationLevel: "Serializable" });
+        return { ...attempt, fresh: true };
+      } catch (error) {
+        const raced = await findExisting();
+        if (raced) return validateExisting(raced);
+        throw error;
+      }
+    },
+    send: async (attemptId) => {
+      if (simulation === "timeout") throw new Error("Simulated uncertain delivery");
+      if (simulation) return { providerMessageId: `simulated-${attemptId}`, providerThreadId: `simulated-thread-${attemptId}` };
+      const raw = buildRawGmailMessage({
+        fromEmail, fromName: fromOption.name, toEmail, subject, bodyText: body,
+        messageId: attemptId, inReplyTo, references,
+        attachment: attachment || null,
+      });
+      const response = await sendGmailRawMessage(accessToken!, {
+        raw, threadId: threadRecord?.providerThreadId,
+      });
+      return { providerMessageId: response.id, providerThreadId: response.threadId };
+    },
+    accepted: async (id, receipt) => {
+      await db.emailSendAttempt.update({ where: { id }, data: { state: "sent", ...receipt } });
+    },
+    uncertain: async (id) => {
+      await db.emailSendAttempt.update({ where: { id }, data: { state: "uncertain", errorCode: "DELIVERY_UNCONFIRMED" } });
+    },
+  });
+
+  // Delivery is already durable. Label/import failures must never invite another send.
+  let stored = false;
+  try {
+    if (simulation === "post_send_failure") throw new Error("Simulated import failure");
+    if (!simulation && !reviewOnly) {
+      if (connection!.labelId) await addLabelToGmailMessage(accessToken!, sent.providerMessageId, connection!.labelId);
+      const gmailMessage = await getGmailMessage(accessToken!, sent.providerMessageId);
+      const result = await storeGmailMessage({
+        propertyId: context.propertyId,
+        mailboxConnectionId: connection!.id,
+        mailboxEmail: connection!.emailAddress,
+        outboundIdentityEmails: getMailboxFromOptions(connection!.emailAddress).map((option) => option.email),
+        gmailMessage,
+        forcedMatch: { organizationId: organization!.id, contactId: contact?.id ?? null },
+        actorUserId: context.userId, actorUserName: context.userName,
+      });
+      stored = result.imported || result.reason === "existing";
+    } else stored = true;
+    await db.emailSendAttempt.update({ where: { id: sent.attemptId }, data: { stored, errorCode: null } });
+  } catch {
+    await db.emailSendAttempt.update({ where: { id: sent.attemptId }, data: { errorCode: "POST_SEND_SYNC_FAILED" } }).catch(() => undefined);
+  }
+  return { ...sent, stored, reviewOnly, warning: stored ? null : "Email accepted by Gmail; CMS sync needs reconciliation. Do not resend." };
+}
+
+export async function reconcileEmailSend(context: PartnersRequestContext, attemptId: string) {
+  const attempt = await db.emailSendAttempt.findFirst({ where: { id: attemptId, propertyId: context.propertyId } });
+  if (!attempt) throw new Error("Delivery attempt not found.");
+  if (attempt.simulated) throw new Error("Simulated deliveries are not in Gmail.");
+  const { connection, accessToken } = await getMailboxAuthorization(context.propertyId);
+  const match = attempt.providerMessageId || (await searchGmailMessages(accessToken, `in:anywhere rfc822msgid:${attempt.id}@mail.owlswatch.com`)).messages?.[0]?.id;
+  if (!match) return { ...attempt, reconciled: false };
+  const message = await getGmailMessage(accessToken, match);
+  const participants = extractGmailParticipants(message);
+  if (!participants.from.some((person) => person.email.toLowerCase() === attempt.fromEmail) || !participants.to.some((person) => person.email.toLowerCase() === attempt.toEmail)) {
+    throw new Error("Gmail receipt does not match the intended sender and recipient.");
+  }
+  let stored = attempt.reviewOnly;
+  if (!attempt.reviewOnly && attempt.organizationId) {
+    const result = await storeGmailMessage({
+      propertyId: context.propertyId, mailboxConnectionId: connection.id, mailboxEmail: connection.emailAddress,
+      outboundIdentityEmails: getMailboxFromOptions(connection.emailAddress).map((option) => option.email),
+      gmailMessage: message, forcedMatch: { organizationId: attempt.organizationId },
+      actorUserId: context.userId, actorUserName: context.userName,
+    });
+    stored = result.imported || result.reason === "existing";
+  }
+  const updated = await db.emailSendAttempt.update({ where: { id: attempt.id }, data: {
+    state: "sent", providerMessageId: message.id, providerThreadId: message.threadId, stored,
+    errorCode: stored ? null : "POST_SEND_SYNC_FAILED",
+  } });
+  return { ...updated, reconciled: true };
 }
 
 export async function listOrganizationEmailThreads(organizationId: string, propertyId: string) {

@@ -12,6 +12,7 @@
     "test:unit": "pnpm test",
     "test:ci": "pnpm test:unit && pnpm build",
     "test:agent-access": "node scripts/check-agent-access.mjs",
+    "test:uat": "node scripts/check-email-delivery.mjs",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push"
   },

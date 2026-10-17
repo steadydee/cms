@@ -41,6 +41,19 @@ import {
   updateOrganizationStatus,
 } from "@/lib/services/partners";
 import { ToolError, type ToolHandlerResult } from "@/lib/tools/runtime";
+import { getEmailDraft, reconcileEmailSend, saveEmailDraft, sendSavedEmailDraft, type EmailSimulation } from "@/lib/services/partner-email";
+import { db } from "@/lib/db";
+
+function draftAttachment(value: unknown) {
+  if (value === undefined || value === null) return value;
+  if (typeof value !== "object" || Array.isArray(value)) throw new ToolError("VALIDATION_FAILED", "Invalid attachment.");
+  const data = value as Record<string, unknown>;
+  const base64 = requireString(data, "base64");
+  if (base64.length > 14 * 1024 * 1024) throw new ToolError("VALIDATION_FAILED", "Invalid attachment encoding or size.");
+  const content = Buffer.from(base64, "base64");
+  if (content.toString("base64") !== base64) throw new ToolError("VALIDATION_FAILED", "Invalid attachment encoding.");
+  return { filename: requireString(data, "filename"), contentType: optionalString(data, "contentType"), content, size: content.length };
+}
 
 function requireString(input: Record<string, unknown>, key: string) {
   const value = input[key];
@@ -241,6 +254,38 @@ export async function executeTool(
   context: PartnersRequestContext
 ): Promise<ToolHandlerResult> {
   switch (toolName) {
+    case "reconcile_email_send_attempt": {
+      const data = await reconcileEmailSend(context, requireString(input, "attemptId"));
+      return { data, audit: { target: { entityType: "email_send_attempt", entityId: data.id } } };
+    }
+    case "save_partner_email_draft": {
+      const data = await saveEmailDraft(context, {
+        draftId: optionalString(input, "draftId"), organizationId: optionalString(input, "organizationId"),
+        reviewOnly: optionalBoolean(input, "reviewOnly"), firstOutreach: optionalBoolean(input, "firstOutreach"),
+        fromEmail: optionalString(input, "fromEmail"), toEmail: optionalString(input, "toEmail"),
+        subject: optionalString(input, "subject"), body: requireString(input, "body"),
+        contactId: optionalString(input, "contactId"), threadId: optionalString(input, "threadId"),
+        attachment: draftAttachment(input.attachment),
+      });
+      return { data, audit: { target: { entityType: "email_draft", entityId: data.id } } };
+    }
+    case "get_partner_email_draft": return { data: await getEmailDraft(context.propertyId, requireString(input, "draftId")) };
+    case "send_partner_email_draft":
+    case "simulate_email_draft_send": {
+      const data = await sendSavedEmailDraft(context, {
+        draftId: requireString(input, "draftId"), requestId: requireString(input, "requestId"),
+        simulation: toolName === "simulate_email_draft_send" ? requireString(input, "simulation") as EmailSimulation : undefined,
+      });
+      return { data, audit: { target: { entityType: "email_send_attempt", entityId: data.attemptId }, outputSummary: `Gmail send ${data.reused ? "replayed" : "accepted"}; reviewOnly=${data.reviewOnly}; approvalMode=privileged_direct` } };
+    }
+    case "get_email_send_attempt": {
+      const attemptId = optionalString(input, "attemptId");
+      const requestKey = optionalString(input, "requestId");
+      if (!attemptId && !requestKey) throw new ToolError("VALIDATION_FAILED", "An attempt or request ID is required.");
+      const data = await db.emailSendAttempt.findFirst({ where: { propertyId: context.propertyId, ...(attemptId ? { id: attemptId } : { requestKey }) } });
+      if (!data) throw notFound("Delivery attempt not found.");
+      return { data };
+    }
     case "get_dashboard_summary": {
       return { data: await getDashboardSummary(context.propertyId) };
     }
@@ -634,6 +679,7 @@ export async function executeTool(
         recipientLabel: optionalString(input, "recipientLabel"),
         subject: requireString(input, "subject"),
         body: requireString(input, "body"),
+        draftId: requireString(input, "draftId"),
       });
       return {
         data: result,

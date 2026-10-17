@@ -9,10 +9,10 @@ import {
 } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { PartnersRequestContext } from "@/lib/auth";
-import { sendEmailWithResend } from "@/lib/email";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
 import { getContactStage, getStatusDisplayLabel, isContactedStage, type ContactStage } from "@/lib/partners-ui";
-import { getMailboxStatus, listOrganizationEmailDrafts, listOrganizationEmailThreads } from "@/lib/services/partner-email";
+import { getMailboxStatus, listOrganizationEmailDrafts, listOrganizationEmailThreads, sendAccountEmail } from "@/lib/services/partner-email";
+import type { EmailAttachment } from "@/lib/email-delivery";
 
 export type SavedOrganizationView =
   | "all"
@@ -2693,6 +2693,8 @@ export async function sendIntroEmail(
     recipientLabel?: string;
     subject: string;
     body: string;
+    draftId?: string;
+    attachment?: EmailAttachment;
   }
 ) {
   if (!input.recipientEmail.trim()) {
@@ -2708,29 +2710,12 @@ export async function sendIntroEmail(
     await assertContactBelongsToOrganization(input.organizationId, input.contactId);
   }
 
-  const messageId = await sendEmailWithResend({
-    to: input.recipientEmail.trim(),
-    subject: input.subject.trim(),
-    text: normalizeEmailTemplateBody(input.body),
+  const sent = await sendAccountEmail(context, {
+    organizationId: input.organizationId, contactId: input.contactId, draftId: input.draftId,
+    toEmail: input.recipientEmail, fromEmail: "info@owlswatch.com",
+    subject: input.subject, body: input.body, attachment: input.attachment, firstOutreach: true,
   });
-
-  const touch = await logOutreachTouch(context, {
-    organizationId: input.organizationId,
-    contactId: input.contactId,
-    channel: "email",
-    subject: input.subject,
-    summary: input.recipientLabel
-      ? `Sent intro email template to ${input.recipientLabel} via Resend.`
-      : "Sent intro email template via Resend.",
-    outcome: "Awaiting reply",
-    nextStep: "Follow up if no reply.",
-    status: "awaiting_reply",
-  });
-
-  return {
-    messageId,
-    touchId: touch.id,
-  };
+  return { ...sent, messageId: sent.providerMessageId };
 }
 
 export async function scheduleFollowUpTask(

@@ -47,3 +47,12 @@ The access repair does not implement or activate outreach. Dennis's agreed setti
 
 Before activation, recheck mailbox sync health and complete the sending/attachment/
 duplicate-protection work separately. Do not infer eligibility from status alone.
+
+### Safeguards Update: October 17, 2026
+
+The Gmail send path now retains draft attachments, claims durable send records,
+checks CMS and Gmail history before first outreach, and isolates personal review
+emails. See [delivery safeguards](email-delivery-safeguards.md) for the test plan
+and reconciliation rules. Automated sends and the weekday schedule remain off
+pending Dennis's review. Activation still requires a bounded approval policy and
+a fresh mailbox-sync health check; this change does not activate the worker.

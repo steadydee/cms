@@ -218,7 +218,7 @@ export function summarizeInput(input: Record<string, unknown>) {
   const entries = Object.entries(input)
     .filter(([, value]) => value !== undefined && value !== null && value !== "")
     .slice(0, 10)
-    .map(([key, value]) => `${key}=${typeof value === "object" ? "[object]" : String(value)}`);
+    .map(([key, value]) => `${key}=${["body", "base64", "attachment", "token", "secret"].includes(key) ? "[omitted]" : typeof value === "object" ? "[object]" : String(value)}`);
 
   return entries.join(", ") || null;
 }

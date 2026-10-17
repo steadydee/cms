@@ -305,7 +305,15 @@ model EmailMessage {
 
 model EmailDraft {
   id                String              @id @default(cuid())
-  organizationId    String
+  propertyId        String
+  organizationId    String?
+  reviewOnly        Boolean             @default(false)
+  firstOutreach     Boolean             @default(false)
+  attachmentName    String?
+  attachmentType    String?
+  attachmentSize    Int?
+  attachmentSha256  String?
+  attachmentContent Bytes?
   contactId         String?
   emailThreadId     String?
   fromEmail         String?
@@ -316,7 +324,7 @@ model EmailDraft {
   createdByUserName String
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-  organization      PartnerOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization      PartnerOrganization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contact           PartnerContact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
   emailThread       EmailThread?        @relation(fields: [emailThreadId], references: [id], onDelete: SetNull)
 
@@ -324,6 +332,40 @@ model EmailDraft {
   @@index([contactId, updatedAt])
   @@index([emailThreadId, updatedAt])
   @@index([createdByUserId, updatedAt])
+  @@index([propertyId, reviewOnly, updatedAt])
+}
+
+// Retain delivery claims even if the originating draft or account is removed.
+model EmailSendAttempt {
+  id                       String   @id @default(cuid())
+  propertyId               String
+  organizationId           String?
+  draftId                  String?
+  requestKey               String
+  payloadHash              String
+  dedupeKey                String   @unique
+  firstOutreachKey          String?  @unique
+  firstRecipientKey         String?  @unique
+  reviewOnly               Boolean  @default(false)
+  simulated                Boolean  @default(false)
+  toEmail                  String
+  fromEmail                String
+  subject                  String
+  attachmentName           String?
+  attachmentSha256         String?
+  state                    String   @default("pending")
+  providerMessageId        String?
+  providerThreadId         String?
+  stored                   Boolean  @default(false)
+  errorCode                String?
+  actorId                  String
+  actorLabel               String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@unique([propertyId, requestKey])
+  @@index([propertyId, organizationId, createdAt])
+  @@index([propertyId, toEmail, createdAt])
 }
 
 model OutreachTouch {

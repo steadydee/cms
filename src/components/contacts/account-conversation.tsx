@@ -22,6 +22,7 @@ type InlineActionResult = {
   ok: boolean;
   error?: string;
   draftId?: string;
+  warning?: string | null;
 };
 
 type RecipientOption = {
@@ -177,6 +178,9 @@ export function AccountConversation({ contact }: AccountConversationProps) {
   const [subject, setSubject] = useState(latestDraft?.subject ?? "");
   const [body, setBody] = useState(latestDraft?.bodyText ?? "");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [savedAttachment, setSavedAttachment] = useState(latestDraft?.attachmentName ? { name: latestDraft.attachmentName, size: latestDraft.attachmentSize || 0 } : null);
+  const [removeAttachment, setRemoveAttachment] = useState(false);
+  const displayedAttachment = attachment || savedAttachment;
 
   const activeThread = contact.emailThreads.find((thread) => thread.id === activeThreadId) ?? null;
   const currentRecipientKey = recipientOptions.find((option) => {
@@ -188,6 +192,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
 
   function clearAttachment() {
     setAttachment(null);
+    setSavedAttachment(null);
+    setRemoveAttachment(true);
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
     }
@@ -237,6 +243,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     setSubject(draft.subject ?? "");
     setBody(draft.bodyText);
     clearAttachment();
+    setSavedAttachment(draft.attachmentName ? { name: draft.attachmentName, size: draft.attachmentSize || 0 } : null);
+    setRemoveAttachment(false);
     setSaveState({ kind: "idle" });
   }
 
@@ -250,6 +258,8 @@ export function AccountConversation({ contact }: AccountConversationProps) {
     if (activeDraftId) formData.set("draftId", activeDraftId);
     if (contactId) formData.set("contactId", contactId);
     if (activeThread) formData.set("threadId", activeThread.id);
+    if (attachment) formData.set("attachment", attachment);
+    else if (removeAttachment) formData.set("removeAttachment", "true");
     return formData;
   }
 
@@ -266,7 +276,7 @@ export function AccountConversation({ contact }: AccountConversationProps) {
         return;
       }
 
-      setSaveState({ kind: "success", message: successMessage });
+      setSaveState({ kind: "success", message: result.warning || successMessage });
       onSuccess?.(result);
       router.refresh();
     });
@@ -612,12 +622,11 @@ export function AccountConversation({ contact }: AccountConversationProps) {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-soft)]">Attachment</p>
-                  <p className="mt-1 text-[12px] text-[var(--ink-faint)]">One file, sent only with this email. Attachments are not saved with drafts.</p>
                 </div>
 
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] font-medium text-[var(--ink-soft)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                   <Paperclip className="h-4 w-4" />
-                  {attachment ? "Replace file" : "Attach file"}
+                  {displayedAttachment ? "Replace file" : "Attach file"}
                   <input
                     ref={attachmentInputRef}
                     type="file"
@@ -636,17 +645,20 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                       }
 
                       setAttachment(file);
+                      setRemoveAttachment(false);
                       setSaveState({ kind: "idle" });
                     }}
                   />
                 </label>
               </div>
 
-              {attachment ? (
+              {displayedAttachment ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[13px] text-[var(--ink-soft)]">
                   <Paperclip className="h-4 w-4 text-[var(--accent)]" />
                   <span className="min-w-0 flex-1 truncate">
-                    {attachment.name} · {formatAttachmentSize(attachment.size)}
+                    {savedAttachment && !attachment && activeDraftId ? (
+                      <a href={`/api/email-drafts/${activeDraftId}/attachment`} className="underline" download>{displayedAttachment.name}</a>
+                    ) : displayedAttachment.name} · {formatAttachmentSize(displayedAttachment.size)}
                   </span>
                   <button
                     type="button"
@@ -672,6 +684,9 @@ export function AccountConversation({ contact }: AccountConversationProps) {
                     (result) => {
                       if (result.draftId) {
                         setActiveDraftId(result.draftId);
+                        setSavedAttachment(displayedAttachment ? { name: displayedAttachment.name, size: displayedAttachment.size } : null);
+                        setAttachment(null);
+                        setRemoveAttachment(false);
                       }
                     }
                   );

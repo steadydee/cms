@@ -6,7 +6,8 @@ function fakeRequest(failDiscovery = false) {
   const calls: Array<{ url: string; options: RequestInit }> = [];
   return {
     calls,
-    request: async (url: string, options: RequestInit) => {
+    request: async (input: RequestInfo | URL, options: RequestInit = {}) => {
+      const url = input instanceof Request ? input.url : String(input);
       calls.push({ url, options });
       const path = new URL(url).pathname;
       const headers = options.headers as Record<string, string> | undefined;

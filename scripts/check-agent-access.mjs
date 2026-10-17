@@ -12,7 +12,7 @@ export const TARGETS = {
 };
 
 // Read-only CMS calls only: never invoke a send or mutation tool in this check.
-export async function checkAgentAccess({ environment = "test", agentKey, propertyId = "owlswatch", hubProtectionBypass, cmsProtectionBypass }, request = fetch) {
+export async function checkAgentAccess({ environment = "test", agentKey = "", propertyId = "owlswatch", hubProtectionBypass = "", cmsProtectionBypass = "" }, request = fetch) {
   if (!Object.hasOwn(TARGETS, environment)) throw new Error("Unknown verification environment.");
   if (!agentKey?.trim()) throw new Error("HUB_AGENT_KEY is required; use a read-only Hub agent credential.");
   const { hubBaseUrl, cmsBaseUrl } = TARGETS[environment];

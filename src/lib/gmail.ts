@@ -292,6 +292,7 @@ async function gmailFetch<T>(accessToken: string, path: string, init?: RequestIn
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
+    signal: init?.signal ?? AbortSignal.timeout(25000),
   });
 
   if (!response.ok) {
@@ -421,6 +422,11 @@ export async function listRecentGmailMessages(accessToken: string, maxResults = 
   return gmailFetch<GmailMessagesListResponse>(accessToken, `messages?${params.toString()}`);
 }
 
+export async function searchGmailMessages(accessToken: string, query: string) {
+  const params = new URLSearchParams({ q: query, maxResults: "1", includeSpamTrash: "true" });
+  return gmailFetch<GmailMessagesListResponse>(accessToken, `messages?${params.toString()}`);
+}
+
 async function listGmailHistoryPage(accessToken: string, startHistoryId: string, pageToken?: string) {
   const params = new URLSearchParams({
     startHistoryId,
@@ -489,6 +495,7 @@ export function buildRawGmailMessage(input: {
   toEmail: string;
   subject: string;
   bodyText: string;
+  messageId?: string;
   inReplyTo?: string | null;
   references?: string[];
   attachment?: {
@@ -509,6 +516,8 @@ export function buildRawGmailMessage(input: {
       ? `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`
       : `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
   ];
+
+  if (input.messageId) headers.push(`Message-ID: <${sanitizeMimeHeaderValue(input.messageId, "invalid")}@mail.owlswatch.com>`);
 
   if (input.inReplyTo) {
     headers.push(`In-Reply-To: ${input.inReplyTo}`);
