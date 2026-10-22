@@ -10,6 +10,7 @@ if (process.env.OW_PARTNERS_ALLOW_LIVE_EMAIL_SENDS?.toLowerCase() === "true") th
 const run = randomUUID();
 const created = [];
 const passed = [];
+const vercelOptions = process.env.VERCEL_GLOBAL_CONFIG ? ["--global-config", process.env.VERCEL_GLOBAL_CONFIG] : [];
 const headers = {
   "x-ow-internal-secret": process.env.OW_INTERNAL_SHARED_SECRET,
   "x-ow-user-id": "email-safeguards-uat", "x-ow-user-name": "Acme UAT",
@@ -18,7 +19,7 @@ const headers = {
 function request(path, input, extraHeaders = {}) {
   const config = [`request = "${input === undefined ? "GET" : "POST"}"`, ...Object.entries({ ...headers, ...extraHeaders }).filter(([,v]) => v).map(([k,v]) => `header = ${JSON.stringify(`${k}: ${v}`)}`)];
   if (input !== undefined) config.push(`data = ${JSON.stringify(JSON.stringify({ input }))}`);
-  const result = spawnSync("vercel", ["curl", path, "--deployment", origin, "--", "--silent", "--show-error", "--include", "--max-time", "45", "--config", "-"], { input: config.join("\n"), timeout: 60000 });
+  const result = spawnSync("vercel", [...vercelOptions, "curl", path, "--deployment", origin, "--", "--silent", "--show-error", "--include", "--max-time", "45", "--config", "-"], { input: config.join("\n"), timeout: 60000 });
   if (result.status !== 0) throw new Error(`Transport failed: ${path}`);
   const raw = result.stdout;
   const split = raw.indexOf("\r\n\r\n");
@@ -37,7 +38,7 @@ function upload(input, content) {
   fs.writeFileSync(path, content, { mode: 0o600 });
   try {
     const config = [...Object.entries(headers).filter(([key]) => key !== "content-type").map(([key,value]) => `header = ${JSON.stringify(`${key}: ${value}`)}`), `form-string = ${JSON.stringify(`input=${JSON.stringify(input)}`)}`, `form = ${JSON.stringify(`attachment=@${path};filename=Acme-large-2027.pdf;type=application/pdf`)}`].join("\n");
-    const result = spawnSync("vercel", ["curl", "/api/tools/save_partner_email_draft", "--deployment", origin, "--", "--silent", "--show-error", "--max-time", "60", "--config", "-"], { input: config, timeout: 75000, maxBuffer: 8 * 1024 * 1024 });
+    const result = spawnSync("vercel", [...vercelOptions, "curl", "/api/tools/save_partner_email_draft", "--deployment", origin, "--", "--silent", "--show-error", "--max-time", "60", "--config", "-"], { input: config, timeout: 75000, maxBuffer: 8 * 1024 * 1024 });
     assert.equal(result.status, 0);
     const body = JSON.parse(result.stdout.toString());
     assert.equal(body.success, true, body.message);

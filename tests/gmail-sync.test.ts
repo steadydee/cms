@@ -1,9 +1,49 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { GmailApiError, isMissingGmailResource, readGmailSyncItem } from "../src/lib/gmail-errors";
 import {
   buildTrackedGmailThreadImports,
   collectGmailHistoryMessageRefs,
 } from "../src/lib/gmail-sync";
+
+test("sync continues past deleted messages and threads to read later mail", async () => {
+  for (const kind of ["messages", "threads"]) {
+    const imported: string[] = [];
+    let missing = 0;
+    for (const id of ["deleted", "reply"]) {
+      const path = `${kind}/${id}`;
+      const item = await readGmailSyncItem(path, async () => {
+        if (id === "deleted") throw new GmailApiError(404, "GET", `${path}?format=full`, "Not found");
+        return { id };
+      });
+      if (item) imported.push(item.id);
+      else missing += 1;
+    }
+    assert.deepEqual(imported, ["reply"]);
+    assert.equal(missing, 1);
+  }
+});
+
+test("sync does not swallow authorization, quota, network, or unrelated 404 failures", async () => {
+  const path = "messages/missing";
+  for (const error of [
+    ...[401, 403, 429, 500].map((status) => new GmailApiError(status, "GET", path, "Failure")),
+    new GmailApiError(404, "POST", path, "Failure"),
+    new GmailApiError(404, "GET", "labels/missing", "Failure"),
+    new Error("Gmail API request failed (404): untyped failure"),
+    new Error("Network timeout"),
+  ]) {
+    await assert.rejects(readGmailSyncItem(path, async () => { throw error; }), (actual) => actual === error);
+  }
+});
+
+test("expired history is distinguished from missing mail and other Gmail errors", async () => {
+  assert.equal(isMissingGmailResource(new GmailApiError(404, "GET", "history?startHistoryId=123", "Expired"), "history"), true);
+  assert.equal(isMissingGmailResource(new GmailApiError(404, "GET", "messages/123", "Deleted"), "history"), false);
+  for (const path of ["history", "labels/missing", "messages", "messages/123/modify"]) {
+    await assert.rejects(readGmailSyncItem(path, async () => ({})), /Only individual Gmail messages and threads/);
+  }
+});
 
 test("Gmail history collection includes all paginated message references without duplicates", () => {
   const result = collectGmailHistoryMessageRefs([

@@ -38,6 +38,24 @@ Follow the [Hub testing standard](../../owhub/docs/testing-standard.md) and
   follow Dennis's review and establish a bounded approved policy, not remove the
   approval check or use a shared internal secret on a worker.
 
+## Gmail Sync Recovery
+
+- Gmail history can reference a message or tracked thread that has since been
+  deleted in Gmail. A typed 404 from the matching individual GET is skipped and
+  counted; existing CMS correspondence is retained. Authentication, quota,
+  network, server and unrelated-resource errors still fail the sync.
+- The sync cursor comes from the fetched history, or from the profile read before
+  imports when recovering an expired history cursor. It must not advance to a
+  profile read after imports, which could skip mail arriving during the run.
+- `tests/gmail-sync.test.ts` covers deleted messages/threads followed by a valid
+  reply, non-404 and unrelated-404 rejection, expired history recognition,
+  paginated history and unlabeled tracked replies.
+- For deployed sync smoke checks, Test must have its own `CRON_SECRET` and no
+  connected real mailbox. Verify unauthenticated cron requests return 401 and
+  authenticated requests report zero connected mailboxes. Never copy production
+  Gmail credentials into Test. Verify real mailbox recovery in production through
+  the normal sync job, not synthetic messages or a live-send test.
+
 ## Deployed Test Plan
 
 1. Run `pnpm lint` and `pnpm test:ci` with the **test** environment injected.
@@ -49,6 +67,8 @@ Follow the [Hub testing standard](../../owhub/docs/testing-standard.md) and
 4. Run `pnpm test:uat` with the pulled test environment. It uses authenticated
    `vercel curl` for deployment protection. It refuses production targets or an
    enabled live-send flag. All records use `Acme` and `.invalid` addresses.
+   `VERCEL_GLOBAL_CONFIG` may point at a protected CLI config directory; never
+   pass the token itself in command arguments or commit it to the repository.
 5. The UAT covers byte-for-byte attachment reload/download, edit-preserve/replace/
    remove, property isolation, missing PDF, blocked live sends, agent approval,
    duplicate replay, changed request payload, prior CMS/Gmail history, uncertain

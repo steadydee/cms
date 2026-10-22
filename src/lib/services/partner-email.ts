@@ -25,6 +25,7 @@ import {
   type GmailMessage,
 } from "@/lib/gmail";
 import { buildTrackedGmailThreadImports, type TrackedGmailThreadTarget } from "@/lib/gmail-sync";
+import { isMissingGmailResource, readGmailSyncItem } from "@/lib/gmail-errors";
 import { db } from "@/lib/db";
 import { assertLiveEmailSendsAllowed, getEmailRuntimeLabel } from "@/lib/email-safety";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
@@ -960,10 +961,14 @@ async function syncPropertyMailbox(propertyId: string) {
   const { connection, accessToken } = await getMailboxAuthorization(propertyId);
 
   try {
+    // Never advance to a cursor captured after imports: it could skip mail arriving mid-sync.
+    const profile = await getGmailProfile(accessToken);
     const messageRefs = new Map<string, { id: string; threadId: string }>();
     let latestHistoryId: string | null = connection.historyId || null;
     let trackedThreadsChecked = 0;
     let labeled = 0;
+    let missingMessages = 0;
+    let missingThreads = 0;
 
     if (connection.historyId) {
       try {
@@ -979,8 +984,7 @@ async function syncPropertyMailbox(propertyId: string) {
           }
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "";
-        if (!message.includes("(404)")) {
+        if (!isMissingGmailResource(error, "history")) {
           throw error;
         }
         latestHistoryId = null;
@@ -999,7 +1003,11 @@ async function syncPropertyMailbox(propertyId: string) {
     let skipped = 0;
 
     for (const reference of messageRefs.values()) {
-      const message = await getGmailMessage(accessToken, reference.id);
+      const message = await readGmailSyncItem(`messages/${reference.id}`, () => getGmailMessage(accessToken, reference.id));
+      if (!message) {
+        missingMessages += 1;
+        continue;
+      }
       const result = await storeGmailMessage({
         propertyId,
         mailboxConnectionId: connection.id,
@@ -1028,8 +1036,12 @@ async function syncPropertyMailbox(propertyId: string) {
     });
 
     for (const target of trackedThreads) {
-      const thread = await getGmailThread(accessToken, target.providerThreadId);
+      const thread = await readGmailSyncItem(`threads/${target.providerThreadId}`, () => getGmailThread(accessToken, target.providerThreadId));
       trackedThreadsChecked += 1;
+      if (!thread) {
+        missingThreads += 1;
+        continue;
+      }
 
       for (const item of buildTrackedGmailThreadImports(target, thread)) {
         const result = await storeGmailMessage({
@@ -1054,8 +1066,7 @@ async function syncPropertyMailbox(propertyId: string) {
       }
     }
 
-    const profile = await getGmailProfile(accessToken);
-    latestHistoryId = profile.historyId || latestHistoryId;
+    latestHistoryId = latestHistoryId || profile.historyId || null;
 
     await db.mailboxConnection.update({
       where: { id: connection.id },
@@ -1072,6 +1083,8 @@ async function syncPropertyMailbox(propertyId: string) {
       skipped,
       labeled,
       trackedThreadsChecked,
+      missingMessages,
+      missingThreads,
     };
   } catch (error) {
     await db.mailboxConnection.update({

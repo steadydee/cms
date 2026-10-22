@@ -1,4 +1,5 @@
 import "server-only";
+import { GmailApiError } from "@/lib/gmail-errors";
 
 import {
   collectGmailHistoryMessageRefs,
@@ -297,7 +298,7 @@ async function gmailFetch<T>(accessToken: string, path: string, init?: RequestIn
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Gmail API request failed (${response.status}): ${text}`);
+    throw new GmailApiError(response.status, init?.method?.toUpperCase() || "GET", path, text);
   }
 
   return response.json() as Promise<T>;
