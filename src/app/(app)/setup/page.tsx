@@ -2,6 +2,8 @@ import { getPartnersRequestContext } from "@/lib/auth";
 import { getOpsOverview, listPartnerTypeOptions } from "@/lib/services/partners";
 import { EmailTemplateCard, EmailTemplateCreateCard } from "@/components/dashboard/email-template-card";
 import { PartnerTypeTable } from "@/components/setup/partner-type-table";
+import { DailyOutreachPolicyForm } from "@/components/setup/daily-outreach-policy";
+import { db } from "@/lib/db";
 
 export default async function SetupPage() {
   const context = await getPartnersRequestContext();
@@ -11,6 +13,7 @@ export default async function SetupPage() {
     listPartnerTypeOptions(context.propertyId, { includeInactive: true }),
     getOpsOverview(context.propertyId),
   ]);
+  const policy = context.role === "admin" ? await db.dailyOutreachPolicy.findUnique({ where: { propertyId: context.propertyId } }) : null;
 
   return (
     <div className="mx-auto w-full max-w-[1180px] space-y-6">
@@ -23,6 +26,7 @@ export default async function SetupPage() {
       </section>
 
       <PartnerTypeTable rows={partnerTypes} />
+      {context.role === "admin" && <DailyOutreachPolicyForm policy={policy ? { ...policy, startsAt: policy.startsAt.toISOString(), expiresAt: policy.expiresAt.toISOString() } : null} templates={ops.templates} />}
 
       <section className="rounded-[24px] border border-[var(--line)] bg-[var(--card)] p-5 shadow-[var(--shadow)]">
         <div className="flex flex-wrap items-start justify-between gap-4">

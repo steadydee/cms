@@ -43,6 +43,8 @@ import {
 import { ToolError, type ToolHandlerResult } from "@/lib/tools/runtime";
 import { getEmailDraft, reconcileEmailSend, saveEmailDraft, sendSavedEmailDraft, type EmailSimulation } from "@/lib/services/partner-email";
 import { db } from "@/lib/db";
+import { getDailyOutreachStatus, getDailyOutreachPreflight } from "@/lib/services/daily-outreach";
+import { getEmailRuntimeLabel } from "@/lib/email-safety";
 
 function draftAttachment(value: unknown) {
   if (value === undefined || value === null) return value;
@@ -254,6 +256,8 @@ export async function executeTool(
   context: PartnersRequestContext
 ): Promise<ToolHandlerResult> {
   switch (toolName) {
+    case "get_daily_outreach_status": return { data: await getDailyOutreachStatus(context) };
+    case "get_daily_outreach_preflight": return { data: await getDailyOutreachPreflight(context, requireString(input, "draftId")) };
     case "reconcile_email_send_attempt": {
       const data = await reconcileEmailSend(context, requireString(input, "attemptId"));
       return { data, audit: { target: { entityType: "email_send_attempt", entityId: data.id } } };
@@ -271,12 +275,16 @@ export async function executeTool(
     }
     case "get_partner_email_draft": return { data: await getEmailDraft(context.propertyId, requireString(input, "draftId")) };
     case "send_partner_email_draft":
+    case "simulate_daily_outreach_send":
     case "simulate_email_draft_send": {
+      if (toolName === "simulate_daily_outreach_send" && getEmailRuntimeLabel() !== "test") throw new ToolError("FORBIDDEN", "Daily simulation is only available in Test.", { status: 403 });
       const data = await sendSavedEmailDraft(context, {
         draftId: requireString(input, "draftId"), requestId: requireString(input, "requestId"),
-        simulation: toolName === "simulate_email_draft_send" ? requireString(input, "simulation") as EmailSimulation : undefined,
+        simulation: toolName.startsWith("simulate_") ? requireString(input, "simulation") as EmailSimulation : undefined,
+        outreachEvidence: input.outreachEvidence,
+        testNow: toolName === "simulate_daily_outreach_send" && optionalString(input, "testNow") ? new Date(requireString(input, "testNow")) : undefined,
       });
-      return { data, audit: { target: { entityType: "email_send_attempt", entityId: data.attemptId }, outputSummary: `Gmail send ${data.reused ? "replayed" : "accepted"}; reviewOnly=${data.reviewOnly}; approvalMode=privileged_direct` } };
+      return { data, audit: { target: { entityType: "email_send_attempt", entityId: data.attemptId }, outputSummary: `Gmail send ${data.reused ? "replayed" : "accepted"}; reviewOnly=${data.reviewOnly}; approvalMode=${context.source === "agent" ? "policy" : "privileged_direct"}` } };
     }
     case "get_email_send_attempt": {
       const attemptId = optionalString(input, "attemptId");

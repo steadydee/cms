@@ -1,6 +1,9 @@
 import { headers } from "next/headers";
 import { authorizePartnersAccess, type PartnersAccessLevel, type PartnersRequestContext } from "@/lib/auth";
 import { TOOL_DEFINITIONS, type ToolClassification, type ToolDefinition } from "@/lib/tools/definitions";
+import { getAgentScopeDenial, hasAgentPermission } from "@/lib/tools/agent-scope";
+import { assertPolicyIdentity } from "@/lib/daily-outreach";
+import { db } from "@/lib/db";
 
 export type RequestSource = "ui" | "hub" | "internal_agent" | "chatbot" | "api" | "scheduled_job";
 
@@ -71,16 +74,15 @@ const REQUEST_SOURCES = new Set<RequestSource>(["ui", "hub", "internal_agent", "
 
 function hasPermission(context: PartnersRequestContext, permission: string) {
   if (context.source !== "agent") return true;
-  const values = new Set(context.permissions ?? []);
-  return values.has("partners.admin") || values.has(permission);
+  return hasAgentPermission(context.permissions, permission);
 }
 
 function determineRequestSource(context: PartnersRequestContext, explicit: string | null): RequestSource {
+  if (context.source === "agent") return explicit === "scheduled_job" ? "scheduled_job" : "internal_agent";
   if (explicit && REQUEST_SOURCES.has(explicit as RequestSource)) {
     return explicit as RequestSource;
   }
 
-  if (context.source === "agent") return "internal_agent";
   if (context.source === "shell") return "hub";
   return "api";
 }
@@ -122,12 +124,8 @@ function mapPermissionLevel(tool: ToolDefinition): PartnersAccessLevel {
 }
 
 function enforceClassificationScope(tool: ToolDefinition, context: PartnersRequestContext) {
-  if (context.source !== "agent") return;
-
-  const allowed = new Set(context.allowedToolClassifications ?? []);
-  if (allowed.size > 0 && !allowed.has(tool.classification)) {
-    throw new ToolError("CLASSIFICATION_NOT_ALLOWED", `${tool.classification} tools are not allowed for this agent`, { status: 403 });
-  }
+  const denial = getAgentScopeDenial(tool, context);
+  if (denial) throw new ToolError(denial.code, denial.message, { status: 403 });
 }
 
 function enforcePermissions(tool: ToolDefinition, context: PartnersRequestContext) {
@@ -138,16 +136,23 @@ function enforcePermissions(tool: ToolDefinition, context: PartnersRequestContex
   }
 }
 
-function enforceApproval(tool: ToolDefinition, context: PartnersRequestContext) {
+async function enforceApproval(tool: ToolDefinition, context: PartnersRequestContext) {
   if (!tool.requiresApproval) return;
   if (context.source === "agent") {
+    if (tool.name === "send_partner_email_draft" || tool.name === "simulate_daily_outreach_send") {
+      try {
+        assertPolicyIdentity(await db.dailyOutreachPolicy.findUnique({ where: { propertyId: context.propertyId } }), context);
+        return;
+      } catch { /* The service checks the exact action again before claiming delivery. */ }
+    }
     throw new ToolError("APPROVAL_REQUIRED", `${tool.name} requires an approval flow before agents can execute it`, { status: 403 });
   }
 }
 
 export async function ensureToolAccess(tool: ToolDefinition) {
   const correlationId = await getCorrelationId();
-  const access = await authorizePartnersAccess(mapPermissionLevel(tool));
+  const access = await authorizePartnersAccess(mapPermissionLevel(tool), { allowAgent: true,
+    agentLevel: ["send_partner_email_draft", "simulate_daily_outreach_send"].includes(tool.name) ? "write" : undefined });
   if (!access.ok) {
     return {
       ok: false as const,
@@ -167,10 +172,10 @@ export async function ensureToolAccess(tool: ToolDefinition) {
 
     enforceClassificationScope(tool, access.context);
     enforcePermissions(tool, access.context);
-    enforceApproval(tool, access.context);
+    await enforceApproval(tool, access.context);
   } catch (error) {
     const failure = toToolFailure(error, correlationId);
-    return { ok: false as const, response: failure };
+    return { ok: false as const, response: failure, context: access.context };
   }
 
   return {

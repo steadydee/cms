@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { validateAgentClaims } from "@/lib/agent-claims";
 
 export type PartnersRole = "staff" | "manager" | "admin";
 export type PartnersAccessLevel = "read" | "write" | "admin";
@@ -14,6 +15,7 @@ export type PartnersRequestContext = {
   actorType?: "human" | "agent";
   permissions?: string[];
   allowedToolClassifications?: string[];
+  allowedTools?: string[];
   credentialId?: string;
 };
 
@@ -32,22 +34,6 @@ type HubHandoffPayload = {
   propertyId: string;
   iat: number;
   exp: number;
-};
-
-type HubAgentPayload = {
-  iss: string;
-  typ: string;
-  aud: string;
-  agentId: string;
-  credentialId: string;
-  actorLabel: string;
-  permissions: string[];
-  propertyIds: string[];
-  allowedToolClassifications: string[];
-  activePropertyId: string | null;
-  iat: number;
-  exp: number;
-  jti: string;
 };
 
 type AccessResult =
@@ -84,8 +70,8 @@ function signPayload(payload: object, secret: string): string {
 }
 
 function verifyPayload<T>(token: string, secret: string): T | null {
-  const [encodedPayload, signature] = token.split(".");
-  if (!encodedPayload || !signature) return null;
+  const [encodedPayload, signature, extra] = token.split(".");
+  if (!encodedPayload || !signature || extra !== undefined) return null;
 
   const expected = createSignature(encodedPayload, secret);
   const providedBuffer = Buffer.from(signature);
@@ -108,7 +94,7 @@ function hasRequiredAgentPermission(permissions: string[] | undefined, level: Pa
   const values = new Set(permissions ?? []);
   if (values.has("partners.admin")) return true;
 
-  const permissionValues = Array.from(values);
+  const permissionValues = Array.from(values).filter((value) => value.startsWith("partners."));
   if (level === "read") {
     return permissionValues.some((value) => value.endsWith(".read") || value.endsWith(".write") || value.endsWith(".send"));
   }
@@ -167,16 +153,8 @@ async function getAgentContext(): Promise<PartnersRequestContext | null> {
   const [scheme, token] = authHeader.split(" ");
   if (!scheme || !token || scheme.toLowerCase() !== "bearer") return null;
 
-  const payload = verifyPayload<HubAgentPayload>(token.trim(), getAgentTokenSecret());
+  const payload = validateAgentClaims(verifyPayload<unknown>(token.trim(), getAgentTokenSecret()));
   if (!payload) return null;
-  if (payload.typ !== "agent_access") return null;
-  if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
-  if (payload.iss !== "owhub") return null;
-  if (payload.aud !== "partners") return null;
-  if (!payload.activePropertyId) return null;
-
-  const propertyAllowed = payload.propertyIds.includes("*") || payload.propertyIds.includes(payload.activePropertyId);
-  if (!propertyAllowed) return null;
 
   return {
     userId: payload.agentId,
@@ -188,6 +166,7 @@ async function getAgentContext(): Promise<PartnersRequestContext | null> {
     actorType: "agent",
     permissions: payload.permissions,
     allowedToolClassifications: payload.allowedToolClassifications,
+    allowedTools: payload.allowedTools,
     credentialId: payload.credentialId,
   };
 }
@@ -257,11 +236,9 @@ async function getDevContext(): Promise<PartnersRequestContext | null> {
 }
 
 export async function getPartnersRequestContext(): Promise<PartnersRequestContext | null> {
+  if ((await headers()).has("authorization")) return null;
   const cookieContext = await getCookieContext();
   if (cookieContext) return cookieContext;
-
-  const agentContext = await getAgentContext();
-  if (agentContext) return agentContext;
 
   const shell = await getShellContext();
   if (shell.context) return shell.context;
@@ -269,21 +246,22 @@ export async function getPartnersRequestContext(): Promise<PartnersRequestContex
   return getDevContext();
 }
 
-export async function authorizePartnersAccess(level: PartnersAccessLevel): Promise<AccessResult> {
+export async function authorizePartnersAccess(level: PartnersAccessLevel, options: { allowAgent?: boolean; agentLevel?: PartnersAccessLevel } = {}): Promise<AccessResult> {
+  if ((await headers()).has("authorization")) {
+    if (!options.allowAgent) return { ok: false, status: 403, message: "Machine access must use the scoped Partners tool interface" };
+    const context = await getAgentContext();
+    if (!context) return { ok: false, status: 401, message: "Invalid machine access token" };
+    if (!hasRequiredAgentPermission(context.permissions, options.agentLevel ?? level)) {
+      return { ok: false, status: 403, message: "This machine actor does not have enough Partners scope" };
+    }
+    return { ok: true, context };
+  }
   const cookieContext = await getCookieContext();
   if (cookieContext) {
     if (!hasRequiredAccess(cookieContext.role, level)) {
       return { ok: false, status: 403, message: `This action requires ${ACCESS_MIN_ROLE[level]} access` };
     }
     return { ok: true, context: cookieContext };
-  }
-
-  const agentContext = await getAgentContext();
-  if (agentContext) {
-    if (!hasRequiredAgentPermission(agentContext.permissions, level)) {
-      return { ok: false, status: 403, message: "This machine actor does not have enough Partners scope" };
-    }
-    return { ok: true, context: agentContext };
   }
 
   const shell = await getShellContext();

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { authorizePartnersAccess } from "@/lib/auth";
 import { setFlashMessage } from "@/lib/flash";
+import { saveDailyOutreachPolicy, pauseDailyOutreachPolicy } from "@/lib/services/daily-outreach";
 import {
   createEmailTemplate,
   deleteEmailTemplate,
@@ -28,6 +29,23 @@ type InlineActionResult = {
   ok: boolean;
   error?: string;
 };
+
+export async function saveDailyOutreachSetupAction(form: FormData): Promise<InlineActionResult> {
+  try {
+    const access = await authorizePartnersAccess("admin");
+    if (!access.ok) return { ok: false, error: access.message };
+    if (form.get("action") === "pause") await pauseDailyOutreachPolicy(access.context);
+    else await saveDailyOutreachPolicy(access.context, {
+      enabled: form.get("enabled") === "on", agentId: String(form.get("agentId")), credentialId: String(form.get("credentialId")),
+      templateId: String(form.get("templateId")), attachmentName: String(form.get("attachmentName")),
+      attachmentSha256: String(form.get("attachmentSha256")), businessMailbox: String(form.get("businessMailbox")),
+      personalMailbox: String(form.get("personalMailbox")), startsAt: `${form.get("startsAt")}T00:00:00-05:00`,
+      expiresAt: `${form.get("expiresAt")}T00:00:00-05:00`,
+    });
+    revalidatePath("/setup");
+    return { ok: true };
+  } catch (error) { return { ok: false, error: getErrorMessage(error) }; }
+}
 
 function revalidateSetupSurfaces() {
   revalidatePath("/setup");

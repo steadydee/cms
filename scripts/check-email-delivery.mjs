@@ -91,7 +91,7 @@ try {
   pass("cross-property draft and attachment reads denied");
   assert.match(tool("send_partner_email_draft", { draftId: d.id, requestId: `${run}-blocked-live` }, false).message, /External email sending is disabled/);
   pass("live sends remain blocked in test");
-  const payload = Buffer.from(JSON.stringify({ iss: "owhub", typ: "agent_access", aud: "partners", agentId: "uat-agent", credentialId: "uat-key", actorLabel: "Acme UAT", permissions: ["partners.admin", "partners.outreach.send"], propertyIds: ["owlswatch"], allowedToolClassifications: ["restricted"], activePropertyId: "owlswatch", iat: Math.floor(Date.now()/1000), exp: Math.floor(Date.now()/1000)+300, jti: run })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ iss: "owhub", typ: "agent_access", aud: "partners", agentId: "uat-agent", credentialId: "uat-key", actorLabel: "Acme UAT", permissions: ["partners.admin", "partners.outreach.send"], propertyIds: ["owlswatch"], allowedToolClassifications: ["restricted"], allowedTools: ["send_partner_email_draft"], activePropertyId: "owlswatch", iat: Math.floor(Date.now()/1000), exp: Math.floor(Date.now()/1000)+300, jti: run })).toString("base64url");
   const token = `${payload}.${createHmac("sha256", process.env.OW_AGENT_TOKEN_SECRET.trim()).update(payload).digest("base64url")}`;
   const denied = tool("send_partner_email_draft", { draftId: d.id, requestId: `${run}-agent` }, false, { "x-ow-internal-secret": "", authorization: `Bearer ${token}` });
   assert.equal(denied.errorCode, "APPROVAL_REQUIRED");

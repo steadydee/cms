@@ -33,10 +33,11 @@ Follow the [Hub testing standard](../../owhub/docs/testing-standard.md) and
   an operator contacted. Later Gmail sync also excludes the review and its reply
   thread, including recovery by Message-ID if the original receipt was lost.
   A review send is not campaign activation.
-- Agent outbound calls remain `APPROVAL_REQUIRED` at both the tool and service
-  boundaries. No schedule is created or enabled by this change. Activation must
-  follow Dennis's review and establish a bounded approved policy, not remove the
-  approval check or use a shared internal secret on a worker.
+- Agent outbound calls require approval at both tool and service boundaries.
+  The canonical saved-draft tool supports the narrowly scoped
+  [daily outreach policy](daily-outreach-policy.md); all other agent send routes
+  remain blocked. A policy must be approved and active, never inferred from the
+  presence of a schedule or a broad credential.
 
 ## Gmail Sync Recovery
 

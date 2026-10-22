@@ -29,6 +29,7 @@ export function isProductionEmailRuntime(env: EmailSafetyEnv = process.env) {
 }
 
 export function areLiveEmailSendsAllowed(env: EmailSafetyEnv = process.env) {
+  if (normalized(env[LIVE_EMAIL_SENDS_FLAG]) === "false") return false;
   if (normalized(env[LIVE_EMAIL_SENDS_FLAG]) === "true") return true;
   return isProductionEmailRuntime(env);
 }

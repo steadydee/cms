@@ -11,7 +11,7 @@ Use [Hub machine auth](../../owhub/docs/machine-auth-and-scope-spec.md) and the
 
 ## Read-Only Verification
 
-Use a dedicated Hub agent key scoped to `partners.organizations.read`, the `read`
+Use a dedicated Hub agent key scoped to `partners.read` (or `partners.organizations.read`), the `read`
 classification, and property `owlswatch`. Supply the raw key through a protected
 environment/secret store as `HUB_AGENT_KEY`; never put it in a command argument or logs.
 
@@ -47,6 +47,10 @@ The access repair does not implement or activate outreach. Dennis's agreed setti
 
 Before activation, recheck mailbox sync health and complete the sending/attachment/
 duplicate-protection work separately. Do not infer eligibility from status alone.
+
+Current bounded sending and verification instructions are in
+[Daily Birding Outreach](daily-outreach-policy.md). The historical notes below
+describe the rollout before that policy implementation.
 
 ### Safeguards Update: October 17, 2026
 

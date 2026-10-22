@@ -30,6 +30,7 @@ import { db } from "@/lib/db";
 import { assertLiveEmailSendsAllowed, getEmailRuntimeLabel } from "@/lib/email-safety";
 import { normalizeEmailTemplateBody } from "@/lib/email-template-utils";
 import { attachmentFields, assertNeverContacted, deliverEmailOnce, deliveryAttemptIds, emailAddress, emailPayloadHash, priorContactQuery, type EmailAttachment } from "@/lib/email-delivery";
+import { getDailyOutreachPreflight } from "@/lib/services/daily-outreach";
 
 const GMAIL_SYNC_ACTOR_ID = "gmail-sync";
 const GMAIL_SYNC_ACTOR_NAME = "Gmail sync";
@@ -849,7 +850,7 @@ export async function getEmailDraft(propertyId: string, draftId: string) {
   return draft;
 }
 
-export async function sendSavedEmailDraft(context: PartnersRequestContext, input: { draftId: string; requestId: string; simulation?: EmailSimulation }) {
+export async function sendSavedEmailDraft(context: PartnersRequestContext, input: { draftId: string; requestId: string; simulation?: EmailSimulation; outreachEvidence?: unknown; testNow?: Date }) {
   const draft = await getEmailDraft(context.propertyId, input.draftId);
   return sendAccountEmail(context, {
     organizationId: draft.organizationId || undefined,
@@ -863,6 +864,8 @@ export async function sendSavedEmailDraft(context: PartnersRequestContext, input
     threadId: draft.emailThreadId || undefined,
     firstOutreach: draft.firstOutreach,
     simulation: input.simulation,
+    outreachEvidence: input.outreachEvidence,
+    testNow: input.testNow,
   });
 }
 
@@ -1199,10 +1202,17 @@ export async function sendAccountEmail(
     subject: string;
     body: string;
     attachment?: EmailAttachment | null;
+    outreachEvidence?: unknown;
+    testNow?: Date;
   }
 ) {
-  if (context.source === "agent") throw new Error("APPROVAL_REQUIRED: automated outreach has not been activated.");
+  if (context.source === "agent" && (!input.draftId || !input.outreachEvidence)) throw new Error("APPROVAL_REQUIRED: a saved draft and fresh outreach evidence are required.");
   const simulation = input.simulation;
+  if (context.source === "agent" && !simulation && getEmailRuntimeLabel() !== "production") {
+    throw new Error("External email sending is disabled for automated outreach outside production.");
+  }
+  if (input.testNow && (!simulation || getEmailRuntimeLabel() !== "test")) throw new Error("Test clock is unavailable outside simulation.");
+  const now = () => input.testNow ?? new Date();
   if (simulation && (getEmailRuntimeLabel() !== "test" || context.role !== "admin" || !["success", "timeout", "post_send_failure", "prior_gmail_contact"].includes(simulation))) {
     throw new Error("Email simulation is restricted to administrators in the test environment.");
   }
@@ -1210,6 +1220,11 @@ export async function sendAccountEmail(
   const organizationId = input.organizationId?.trim() || "";
   const draft = input.draftId ? await db.emailDraft.findFirst({ where: { id: input.draftId, propertyId: context.propertyId } }) : null;
   if (input.draftId && (!draft || (draft.organizationId || "") !== organizationId)) throw new Error("Draft not found for account.");
+  const policyPreflight = context.source === "agent" ? await getDailyOutreachPreflight(context, draft!.id,
+    { now: now(), simulated: Boolean(simulation), evidence: input.outreachEvidence, forSend: true }) : null;
+  if (policyPreflight && (input.toEmail !== draft!.toEmail || input.fromEmail !== draft!.fromEmail
+    || input.subject !== draft!.subject || input.body !== draft!.bodyText || input.contactId !== (draft!.contactId || undefined)
+    || input.threadId || input.attachment !== undefined)) throw new Error("Policy sends must use the saved draft unchanged.");
   const reviewOnly = draft?.reviewOnly === true;
   if (reviewOnly && context.role !== "admin") throw new Error("Only an administrator may send a review-only email.");
   const toEmail = emailAddress(reviewOnly ? reviewEmailAddress() : input.toEmail);
@@ -1250,7 +1265,7 @@ export async function sendAccountEmail(
   const authorization = simulation ? null : await getMailboxAuthorization(context.propertyId);
   const connection = authorization?.connection;
   const accessToken = authorization?.accessToken;
-  const fromOption = simulation ? { email: "sender@example.invalid", name: "Acme UAT" }
+  const fromOption = simulation ? { email: policyPreflight?.policy.senderEmail || "sender@example.invalid", name: "Acme UAT" }
     : resolveMailboxFromOption(connection!.emailAddress, reviewOnly ? "info@owlswatch.com" : input.fromEmail);
   const fromEmail = emailAddress(fromOption.email);
   const firstOutreach = !reviewOnly && (input.firstOutreach === true || draft?.firstOutreach === true || (organization?.status === "not_contacted" && !input.threadId));
@@ -1310,7 +1325,7 @@ export async function sendAccountEmail(
     threadId: threadRecord?.id || null, attachmentSha256: attachmentData.attachmentSha256 || null,
     attachmentName: attachment?.filename || null, attachmentType: attachment?.contentType || null, reviewOnly, simulated: Boolean(simulation),
   });
-  const requestKey = input.requestId?.trim() || payloadHash;
+  const requestKey = policyPreflight ? `daily-outreach:${policyPreflight.dailyOutreachKey}` : input.requestId?.trim() || payloadHash;
   if (requestKey.length > 200) throw new Error("Request ID is too long.");
   const dedupeKey = `${context.propertyId}:${payloadHash}`;
   const findExisting = () => db.emailSendAttempt.findFirst({ where: { propertyId: context.propertyId, OR: [{ requestKey }, { dedupeKey }] } });
@@ -1330,10 +1345,21 @@ export async function sendAccountEmail(
         const previous = simulation ? { messages: simulation === "prior_gmail_contact" ? [{ id: "simulated-prior" }] : [] }
           : await searchGmailMessages(accessToken!, priorContactQuery(addresses));
         if (previous.messages?.length) throw new Error("First outreach blocked: Gmail already contains correspondence with this account.");
+        if (policyPreflight && !simulation) {
+          for (const query of policyPreflight.queries) {
+            const found = await searchGmailMessages(accessToken!, query);
+            if (found.messages?.length || found.nextPageToken) throw new Error("Gmail correspondence or another send today blocks daily outreach.");
+          }
+        }
       }
       try {
         const attempt = await db.$transaction(async (tx) => {
           if (firstOutreach) await checkFirstOutreach(context.propertyId, organizationId, toEmail, tx);
+          if (policyPreflight) {
+            const checked = await getDailyOutreachPreflight(context, draft!.id, { client: tx, now: now(),
+              simulated: Boolean(simulation), evidence: input.outreachEvidence, forSend: true });
+            if (checked.snapshot !== policyPreflight.snapshot) throw new Error("Account, draft or policy changed during preflight.");
+          }
           return tx.emailSendAttempt.create({ data: {
             propertyId: context.propertyId, organizationId: organizationId || null, draftId: draft?.id,
             requestKey, payloadHash, dedupeKey,
@@ -1342,6 +1368,12 @@ export async function sendAccountEmail(
             reviewOnly, simulated: Boolean(simulation), toEmail, fromEmail, subject,
             attachmentName: attachment?.filename, attachmentSha256: attachmentData.attachmentSha256,
             actorId: context.userId, actorLabel: context.userName,
+            dailyOutreachKey: policyPreflight?.dailyOutreachKey,
+            outreachPolicyId: policyPreflight?.policy.id,
+            approvalMode: policyPreflight ? "policy" : "privileged_direct",
+            outreachEvidence: policyPreflight ? { evidenceSource: "worker_gmail_connector_checks", workerEvidence: input.outreachEvidence as Prisma.InputJsonValue,
+              snapshot: policyPreflight.snapshot, serverBusinessSearch: !simulation, checkedAt: now().toISOString(),
+              policy: JSON.parse(JSON.stringify(policyPreflight.policy)) } : undefined,
           } });
         }, { isolationLevel: "Serializable" });
         return { ...attempt, fresh: true };

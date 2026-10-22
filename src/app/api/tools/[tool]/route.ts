@@ -27,6 +27,11 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/tools/[tool
 
   const access = await ensureToolAccess(definition);
   if (!access.ok) {
+    if ("context" in access && access.context) await createToolActionAudit({
+      toolName: definition.name, classification: definition.classification, context: access.context,
+      correlationId: access.response.correlationId, requestSource: "internal_agent", status: "rejected",
+      errorCode: access.response.errorCode,
+    });
     return NextResponse.json(access.response, {
       status: access.response.errorCode === "UNAUTHENTICATED" ? 401 : 403,
     });
@@ -54,6 +59,11 @@ export async function POST(request: Request, ctx: RouteContext<"/api/tools/[tool
 
   const access = await ensureToolAccess(definition);
   if (!access.ok) {
+    if ("context" in access && access.context) await createToolActionAudit({
+      toolName: definition.name, classification: definition.classification, context: access.context,
+      correlationId: access.response.correlationId, requestSource: "internal_agent", status: "rejected",
+      errorCode: access.response.errorCode,
+    });
     return NextResponse.json(access.response, {
       status: access.response.errorCode === "UNAUTHENTICATED" ? 401 : 403,
     });

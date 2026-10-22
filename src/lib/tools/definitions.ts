@@ -16,6 +16,22 @@ export type ToolDefinition = {
 
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
+    name: "get_daily_outreach_status", description: "Read the approved daily policy, send window, ledger and mailbox health.",
+    classification: "read", accessLevel: "read", requiredPermissions: ["partners.outreach.read"],
+    requiresPropertyContext: true, requiresApproval: false, inputSummary: "{}", outputSummary: "Daily outreach readiness",
+  },
+  {
+    name: "get_daily_outreach_preflight", description: "Read the exact account/draft snapshot and required Gmail queries before a policy send.",
+    classification: "read", accessLevel: "read", requiredPermissions: ["partners.outreach.read"],
+    requiresPropertyContext: true, requiresApproval: false, inputSummary: "{ draftId: string }", outputSummary: "Snapshot and mandatory two-mailbox search queries",
+  },
+  {
+    name: "simulate_daily_outreach_send", description: "Test only: exercise an approved daily agent send with synthetic mailboxes and no Gmail delivery.",
+    classification: "restricted", accessLevel: "admin", requiredPermissions: ["partners.outreach.send"],
+    requiresPropertyContext: true, requiresApproval: true,
+    inputSummary: "{ draftId, requestId, outreachEvidence, simulation, testNow? }", outputSummary: "Simulated daily receipt",
+  },
+  {
     name: "get_dashboard_summary",
     description: "Get the Partners dashboard summary for the active property.",
     classification: "read",
@@ -384,10 +400,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   },
   {
     name: "send_partner_email_draft",
-    description: "Send a saved draft through Gmail with durable duplicate protection. Review-only drafts go exclusively to the configured administrator review address. Agent sends remain approval-required.",
+    description: "Send a saved draft through Gmail. Agents require an active bounded daily policy, exact approved content and fresh evidence from both Gmail accounts.",
     classification: "restricted", accessLevel: "admin", requiredPermissions: ["partners.outreach.send"],
     requiresPropertyContext: true, requiresApproval: true,
-    inputSummary: "{ draftId: string, requestId: string }", outputSummary: "Durable Gmail delivery receipt",
+    inputSummary: "{ draftId: string, requestId: string, outreachEvidence?: { snapshot, reviewedAt, birdingConfirmed, noPriorRelationship, noOptOutOrBounce, notCompetitor, aliasesChecked, checks: [{ mailbox, query, checkedAt, matches, complete }] } }", outputSummary: "Durable Gmail delivery receipt",
   },
   {
     name: "simulate_email_draft_send",

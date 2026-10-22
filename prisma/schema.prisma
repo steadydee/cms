@@ -346,6 +346,10 @@ model EmailSendAttempt {
   dedupeKey                String   @unique
   firstOutreachKey          String?  @unique
   firstRecipientKey         String?  @unique
+  dailyOutreachKey          String?  @unique
+  outreachPolicyId          String?
+  approvalMode              String?
+  outreachEvidence          Json?
   reviewOnly               Boolean  @default(false)
   simulated                Boolean  @default(false)
   toEmail                  String
@@ -366,6 +370,28 @@ model EmailSendAttempt {
   @@unique([propertyId, requestKey])
   @@index([propertyId, organizationId, createdAt])
   @@index([propertyId, toEmail, createdAt])
+}
+
+model DailyOutreachPolicy {
+  id                String   @id @default(cuid())
+  propertyId        String   @unique
+  enabled           Boolean  @default(false)
+  agentId           String
+  credentialId      String
+  templateId        String
+  templateSubject   String
+  templateBody      String
+  attachmentSha256  String
+  attachmentName    String
+  senderEmail       String
+  businessMailbox   String
+  personalMailbox   String
+  startsAt          DateTime
+  expiresAt         DateTime
+  approvedById      String
+  approvedByName    String
+  approvedAt        DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model OutreachTouch {
