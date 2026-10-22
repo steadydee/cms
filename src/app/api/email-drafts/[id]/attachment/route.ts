@@ -1,9 +1,11 @@
-import { authorizePartnersAccess } from "@/lib/auth";
+import { ensureToolAccess, findToolDefinition } from "@/lib/tools/runtime";
 import { db } from "@/lib/db";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const access = await authorizePartnersAccess("read");
-  if (!access.ok) return Response.json({ error: access.message }, { status: access.status });
+  const definition = findToolDefinition("get_partner_email_draft");
+  if (!definition) return Response.json({ error: "Attachment access is unavailable" }, { status: 503 });
+  const access = await ensureToolAccess(definition);
+  if (!access.ok) return Response.json(access.response, { status: access.response.errorCode === "UNAUTHENTICATED" ? 401 : 403 });
   if (access.context.source === "agent" && !access.context.permissions?.some((permission) => permission === "partners.outreach.read" || permission === "partners.admin")) {
     return Response.json({ error: "Permission denied" }, { status: 403 });
   }

@@ -3,7 +3,7 @@ import { authorizePartnersAccess } from "@/lib/auth";
 import { getToolCatalog } from "@/lib/tools/runtime";
 
 export async function GET() {
-  const access = await authorizePartnersAccess("read");
+  const access = await authorizePartnersAccess("read", { allowAgent: true });
   if (!access.ok) {
     return NextResponse.json(
       { success: false, errorCode: "UNAUTHORIZED", message: access.message },

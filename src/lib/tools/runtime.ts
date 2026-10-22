@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { authorizePartnersAccess, type PartnersAccessLevel, type PartnersRequestContext } from "@/lib/auth";
 import { TOOL_DEFINITIONS, type ToolClassification, type ToolDefinition } from "@/lib/tools/definitions";
+import { getAgentScopeDenial } from "@/lib/tools/agent-scope";
 
 export type RequestSource = "ui" | "hub" | "internal_agent" | "chatbot" | "api" | "scheduled_job";
 
@@ -122,12 +123,8 @@ function mapPermissionLevel(tool: ToolDefinition): PartnersAccessLevel {
 }
 
 function enforceClassificationScope(tool: ToolDefinition, context: PartnersRequestContext) {
-  if (context.source !== "agent") return;
-
-  const allowed = new Set(context.allowedToolClassifications ?? []);
-  if (allowed.size > 0 && !allowed.has(tool.classification)) {
-    throw new ToolError("CLASSIFICATION_NOT_ALLOWED", `${tool.classification} tools are not allowed for this agent`, { status: 403 });
-  }
+  const denial = getAgentScopeDenial(tool, context);
+  if (denial) throw new ToolError(denial.code, denial.message, { status: 403 });
 }
 
 function enforcePermissions(tool: ToolDefinition, context: PartnersRequestContext) {
@@ -147,7 +144,7 @@ function enforceApproval(tool: ToolDefinition, context: PartnersRequestContext) 
 
 export async function ensureToolAccess(tool: ToolDefinition) {
   const correlationId = await getCorrelationId();
-  const access = await authorizePartnersAccess(mapPermissionLevel(tool));
+  const access = await authorizePartnersAccess(mapPermissionLevel(tool), { allowAgent: true });
   if (!access.ok) {
     return {
       ok: false as const,
@@ -204,7 +201,7 @@ export function toToolFailure(error: unknown, correlationId: string): ToolFailur
   return {
     success: false,
     errorCode: "INTERNAL_ERROR",
-    message: error instanceof Error ? error.message : "Unexpected tool error.",
+    message: "Unexpected tool error.",
     correlationId,
   };
 }

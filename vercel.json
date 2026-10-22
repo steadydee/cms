@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "codex/security-hardening": false
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/gmail/sync",
