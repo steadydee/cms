@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { assertPolicyIdentity, assertApprovedContent, assertOutreachEvidence, outreachDay,
-  outreachSearchQueries, type OutreachPolicy, type OutreachEvidence } from "../src/lib/daily-outreach";
+  outreachSearchQueries, OUTREACH_QUERY_MAX_LENGTH, type OutreachPolicy, type OutreachEvidence } from "../src/lib/daily-outreach";
 import { hasAgentPermission, getAgentScopeDenial } from "../src/lib/tools/agent-scope";
 import { validateAgentClaims } from "../src/lib/agent-claims";
 import { areLiveEmailSendsAllowed } from "../src/lib/email-safety";
@@ -74,11 +74,31 @@ test("approved message, exact PDF and sender cannot be swapped or used for a rep
 test("Gmail queries include all stored contacts, company, website and business domain without searching all Gmail", () => {
   const queries = outreachSearchQueries({ name: "Acme Tours", email: "info@acme.invalid", website: "https://www.acme.invalid",
     contacts: [{ fullName: "Acme Contact", email: "contact@gmail.com" }] });
-  assert.ok(queries.includes('in:anywhere "Acme Tours"'));
-  assert.ok(queries.includes('in:anywhere "Acme Contact"'));
-  assert.ok(queries.includes('in:anywhere "acme.invalid"'));
-  assert.ok(queries.includes('in:anywhere {from:contact@gmail.com to:contact@gmail.com}'));
-  assert.ok(!queries.includes('in:anywhere "gmail.com"'));
+  assert.equal(queries.length, 1);
+  assert.equal(queries[0], 'in:anywhere {"Acme Contact" "Acme Tours" "acme.invalid" from:contact@gmail.com from:info@acme.invalid to:contact@gmail.com to:info@acme.invalid}');
+  assert.ok(!queries[0].includes('"gmail.com"'));
+});
+test("packed searches preserve every atom across bounded deterministic chunks", () => {
+  const contacts = Array.from({ length: 100 }, (_, i) => ({ fullName: `Acme Contact ${i}`, email: `contact${i}@acme.invalid` }));
+  const account = { name: "Acme", email: null, website: null, contacts };
+  const queries = outreachSearchQueries(account);
+  assert.ok(queries.length > 1);
+  assert.deepEqual(outreachSearchQueries({ ...account, contacts: contacts.toReversed() }), queries);
+  for (const query of queries) assert.ok(query.length <= OUTREACH_QUERY_MAX_LENGTH && query.startsWith("in:anywhere {") && query.endsWith("}"));
+  for (const contact of contacts) for (const atom of [`"${contact.fullName}"`, `from:${contact.email}`, `to:${contact.email}`]) {
+    assert.equal(queries.filter(query => query.includes(atom + " ") || query.endsWith(atom + "}")).length, 1);
+  }
+  const value = { ...evidence(), checks: [policy.businessMailbox, policy.personalMailbox].flatMap(mailbox => queries.map(query => ({ mailbox, query, checkedAt: now.toISOString(), matches: 0, complete: true }))) };
+  assert.doesNotThrow(() => assertOutreachEvidence(value, policy, "snapshot", queries, now));
+  value.checks.pop();
+  assert.throws(() => assertOutreachEvidence(value, policy, "snapshot", queries, now), /every required query/);
+});
+test("invalid or oversized search identities fail closed instead of dropping coverage", () => {
+  const account = { name: "Acme", email: "info@acme.invalid", website: null, contacts: [] };
+  for (const change of [{ name: " " }, { name: '"' }, { name: "a".repeat(1500) }, { email: "invalid OR from:other" },
+    { website: "not a url" }, { website: "mailto:info@acme.invalid" }]) {
+    assert.throws(() => outreachSearchQueries({ ...account, ...change }));
+  }
 });
 test("both mailboxes require fresh complete zero-match evidence bound to the current snapshot", () => {
   const validate = (value: unknown) => assertOutreachEvidence(value, policy, "snapshot", ["query1", "query2"], now);

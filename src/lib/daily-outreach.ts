@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizeEmailTemplateBody } from "./email-template-utils";
+import { emailAddress } from "./email-delivery";
 import type { PartnersRequestContext } from "./auth";
 
 export const OUTREACH_TOOL = "send_partner_email_draft";
@@ -58,19 +59,39 @@ export function assertApprovedContent(policy: OutreachPolicy, draft: {
 }
 
 function quoted(term: string) { return `"${term.replace(/["\\\r\n]/g, " ").trim()}"`; }
+export const OUTREACH_QUERY_MAX_LENGTH = 1500;
 const PUBLIC_DOMAINS = new Set(["gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "yahoo.com", "icloud.com", "live.com", "aol.com"]);
 export function outreachSearchQueries(account: { name: string; email: string | null; website: string | null; contacts: { fullName: string; email: string | null }[] }) {
-  const addresses = [...new Set([account.email, ...account.contacts.map(c => c.email)].filter((s): s is string => Boolean(s?.trim())).map(s => s.trim().toLowerCase()))];
+  if (!account.name.trim()) throw new Error("Verify the account name before outreach.");
+  const addresses = [...new Set([account.email, ...account.contacts.map(c => c.email)].filter((s): s is string => Boolean(s?.trim())).map(emailAddress))];
   const terms = new Set([account.name, ...account.contacts.map(c => c.fullName)]);
   for (const address of addresses) {
     const domain = address.split("@")[1];
     if (domain && !PUBLIC_DOMAINS.has(domain)) terms.add(domain);
   }
   if (account.website) {
-    try { terms.add(new URL(account.website).hostname.replace(/^www\./, "")); } catch { throw new Error("Verify the account website before outreach."); }
+    try {
+      const url = new URL(account.website);
+      if (!["http:", "https:"].includes(url.protocol) || !url.hostname) throw new Error("Invalid website");
+      terms.add(url.hostname.replace(/^www\./, ""));
+    } catch { throw new Error("Verify the account website before outreach."); }
   }
-  return [...new Set([...addresses.map(email => `in:anywhere {from:${email} to:${email}}`),
-    ...[...terms].filter(Boolean).map(term => `in:anywhere ${quoted(term)}`)])].sort();
+  // Gmail braces match ANY term. Keep the full union, but make fewer mailbox reads.
+  const atoms = [...new Set([...addresses.flatMap(email => [`from:${email}`, `to:${email}`]),
+    ...[...terms].filter(term => term.trim()).map(quoted)])].sort();
+  const queries: string[] = [];
+  let chunk: string[] = [];
+  const query = (parts: string[]) => `in:anywhere {${parts.join(" ")}}`;
+  for (const atom of atoms) {
+    if (atom === '""' || query([atom]).length > OUTREACH_QUERY_MAX_LENGTH) throw new Error("Verify the account search terms before outreach.");
+    if (query([...chunk, atom]).length > OUTREACH_QUERY_MAX_LENGTH) {
+      queries.push(query(chunk));
+      chunk = [];
+    }
+    chunk.push(atom);
+  }
+  if (chunk.length) queries.push(query(chunk));
+  return queries;
 }
 
 export type OutreachEvidence = {

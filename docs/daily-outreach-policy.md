@@ -35,7 +35,8 @@ secret file. Never include its value in prompts, logs, test fixtures or source.
    with the selected contact's full name (set contactId), or the company name.
 4. Call `get_daily_outreach_preflight`. It returns a snapshot hash and required
    queries for every stored address, company/contact name, domain and today's
-   sender history. Search **each query in both connected Gmail accounts**, plus
+   sender history. Company/address/name/domain terms are packed into bounded
+   Gmail OR queries; no terms are dropped. Search **each query in both connected Gmail accounts**, plus
    any additional aliases found in research. Any match or incomplete/ambiguous
    search means skip, not infer eligibility. No manual synchronization is needed.
 5. Pass `outreachEvidence` to the canonical send tool: snapshot, reviewedAt,
@@ -83,3 +84,40 @@ Test/preview cannot deliver automated outreach, even if a live-test flag is set.
 
 The scheduler must use this contract, never internal-secret human headers,
 browser cookies, direct database writes, Gmail connector sends or Resend.
+
+## Read-Only Search Recovery
+
+Use `scripts/outreach-mailbox-checks.cjs` for connector history reads. It accepts
+the current preflight, two freshly verified `{ email, linkId }` profiles,
+`extraQueries` for researched aliases, and injected `search` and `sleep`
+functions. It returns exact-query checks only after real complete zero-match
+results. Do not synthesize separate-query evidence from an OR-query result.
+Additional alias queries may use Gmail braces to match any of their terms,
+but must keep `in:anywhere` and cover every discovered alias.
+
+For the Codex tool runner, read this trusted repository script with
+`exec_command` (never evaluate email/site content), load its CommonJS export,
+and call `collectMailboxChecks` with `search` forwarding unchanged arguments to
+`gmail_search_email_ids`, and `sleep` awaiting a timer. Do not override `now` in
+production. Store the returned checks for immediate use, not as reusable history.
+Verify profiles before calling it; connector IDs alone do not establish identity.
+
+- Check daily Sent in both mailboxes first. `blocked: daily_sent` ends the run;
+  `blocked: prior_contact` excludes that candidate. Neither returns send evidence.
+- Retry **only reads** with an explicit temporary rate-limit reason, after
+  30, 60 and 120 seconds, at most three retries per query. Never retry a provider
+  send, authentication error, thrown transport error, or unrecognized response.
+- The read budget is eight minutes, ending no later than 09:29 Bogota. Checks
+  older than four minutes are actually searched again, with bounded refresh
+  passes. A timeout, persistent error, pagination token or missing result field
+  still blocks delivery. Do not bypass a connector failure with another identity.
+- After successful reads, recheck live status and the preflight snapshot, and
+  send only if every check is still under five minutes old and before 09:30.
+  A changed snapshot requires a new review. Supply semantic attestations only
+  after reviewing the account; the helper deliberately does not assert them.
+
+Regression coverage is in `tests/outreach-mailbox-checks.test.ts` and
+`tests/daily-outreach.test.ts`. Deployed `check-daily-outreach.mjs` also exercises
+the runner against the candidate's preflight using synthetic connector responses,
+including throttling recovery and prior-contact rejection. This is not a live
+Gmail quota test; persistent provider limits can still cause a safely skipped day.

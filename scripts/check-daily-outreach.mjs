@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
+import mailboxChecks from "./outreach-mailbox-checks.cjs";
 
 const cms = "https://partners-env-test-dennis-projects-b028c121.vercel.app";
 const hub = "https://hub-env-test-dennis-projects-b028c121.vercel.app";
@@ -77,6 +78,22 @@ try {
   assert.equal(transport(cms,"/api/tools/send_intro_email",undefined,a.agent).status,403);
   assert.equal(transport(hub,"/api/agent-auth/exchange",{app:"reservations",propertyId:a.property},{authorization:`Bearer ${fixture.rawKey}`}).status,403);
   pass("real Hub exchange, CMS reads/drafts, named-tool isolation, human-only policy and other-app denial");
+  const packed = tool("get_daily_outreach_preflight", { draftId: a.draft.id }, a.agent);
+  assert.equal(packed.queries.length, 2);
+  assert.ok(packed.queries.some(q => q.startsWith("in:anywhere {") && q.includes(`from:${a.account.email}`) && q.includes(`to:${a.account.email}`) && q.includes(`"${a.account.name}"`)));
+  let clock = testTime.getTime(), reads = 0;
+  const runnerInput = { preflight: packed, mailboxes: [{ email: "work@example.invalid", linkId: "synthetic-work" }, { email: "personal@example.invalid", linkId: "synthetic-personal" }],
+    now: () => clock, sleep: async ms => { clock += ms; }, search: async () => ++reads === 1
+      ? { isError: true, structuredContent: { error_data: { reason: "RATE_LIMIT_EXCEEDED" } } }
+      : { isError: false, structuredContent: { message_ids: [], next_page_token: null } } };
+  const recovered = await mailboxChecks.collectMailboxChecks(runnerInput);
+  assert.equal(recovered.retries, 1); assert.equal(recovered.checks.length, 4); assert.equal(reads, 5);
+  const runnerEvidence = { ...evidence(a), ...recovered };
+  const recoveredSend = simulate(a, runnerEvidence, { testNow: new Date(clock).toISOString() });
+  assert.equal(tool("get_email_send_attempt", { attemptId: recoveredSend.attemptId }, a.agent).simulated, true);
+  const blocked = await mailboxChecks.collectMailboxChecks({ ...runnerInput, search: async ({ query }) => ({ isError: false, structuredContent: { message_ids: query === packed.dailySentQuery ? [] : ["synthetic-prior-contact"], next_page_token: null } }) });
+  assert.equal(blocked.blocked, "prior_contact"); assert.equal(blocked.checks, undefined);
+  pass("packed deployed preflight plus read-only throttle recovery produces accepted evidence; prior contact still blocks");
   const changed = await setup("changed"); const old = evidence(changed);
   tool("save_partner_email_draft",{...changed.draftInput,draftId:changed.draft.id,body:"Altered"},changed.agent);
   assert.match(simulate(changed,old,{},false).message,/differs/);
